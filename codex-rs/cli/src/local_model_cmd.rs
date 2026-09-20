@@ -8,6 +8,7 @@ use codex_local_models::download_hugging_face_artifact;
 use codex_local_models::inspect_hugging_face_model;
 use codex_local_models::load_registry;
 use codex_local_models::remove_local_model;
+use codex_local_models::search_hugging_face_models;
 use codex_utils_cli::CliConfigOverrides;
 use std::path::PathBuf;
 use std::process::Command;
@@ -24,6 +25,20 @@ pub struct LocalModelCommand {
 enum LocalModelSubcommand {
     /// Show the effective model, download, and registry paths.
     Path,
+
+    /// Search Hugging Face model repositories, ordered by downloads.
+    Search {
+        /// Search text, such as "qwen coder gguf".
+        query: String,
+
+        /// Maximum number of results, from 1 through 100.
+        #[arg(long, default_value_t = 10, value_parser = clap::value_parser!(u8).range(1..=100))]
+        limit: u8,
+
+        /// Emit search results as JSON.
+        #[arg(long, default_value_t = false)]
+        json: bool,
+    },
 
     /// List model artifacts recorded in the local registry.
     List {
@@ -116,6 +131,33 @@ pub async fn run(
             println!("models:  {}", config.local_models.models_dir.display());
             println!("staging: {}", config.local_models.temp_dir.display());
             println!("registry: {}", config.local_models.registry_file.display());
+        }
+        LocalModelSubcommand::Search { query, limit, json } => {
+            let token = std::env::var("HF_TOKEN").ok();
+            let results = search_hugging_face_models(
+                &reqwest::Client::new(),
+                &Url::parse("https://huggingface.co/")?,
+                &query,
+                limit,
+                token.as_deref(),
+            )
+            .await?;
+            if json {
+                serde_json::to_writer_pretty(std::io::stdout(), &results)?;
+                println!();
+            } else if results.is_empty() {
+                println!("No matching Hugging Face models found.");
+            } else {
+                for model in results {
+                    println!(
+                        "{}\tdownloads={}\tlikes={}\t{}",
+                        model.id,
+                        model.downloads,
+                        model.likes,
+                        model.pipeline_tag.as_deref().unwrap_or("-")
+                    );
+                }
+            }
         }
         LocalModelSubcommand::List { json } => {
             let registry = load_registry(&config.local_models.registry_file)?;
@@ -211,8 +253,8 @@ pub async fn run(
                         .parse::<std::net::IpAddr>()
                         .is_ok_and(|address| address.is_loopback())
             });
-            if !is_loopback || !matches!(endpoint.scheme(), "http" | "https") {
-                anyhow::bail!("local analysis backend_url must be an HTTP(S) loopback URL");
+            if !is_loopback || endpoint.scheme() != "http" {
+                anyhow::bail!("LM Studio activation requires an HTTP loopback backend_url");
             }
             let port = endpoint
                 .port_or_known_default()
@@ -226,9 +268,16 @@ pub async fn run(
                 model.source.repository.clone(),
                 model.artifact.local_path.display().to_string(),
             ];
+            let artifact_name = model
+                .artifact
+                .local_path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .ok_or_else(|| anyhow::anyhow!("model artifact has no UTF-8 filename"))?;
+            let imported_model_key = format!("{}/{artifact_name}", model.source.repository);
             let load_args = vec![
                 "load".to_owned(),
-                model.source.repository.clone(),
+                imported_model_key,
                 "--identifier".to_owned(),
                 backend_model.to_owned(),
                 "--gpu".to_owned(),
@@ -250,12 +299,20 @@ pub async fn run(
             } else {
                 run_command("lms", &import_args)?;
                 run_command("lms", &load_args)?;
-                run_command("lms", &server_args)?;
                 let client = reqwest::Client::builder()
                     .timeout(std::time::Duration::from_secs(10))
                     .build()?;
                 let status =
-                    check_openai_compatible_endpoint(&client, &endpoint, backend_model).await?;
+                    match check_openai_compatible_endpoint(&client, &endpoint, backend_model).await
+                    {
+                        Ok(status) => status,
+                        Err(_) => {
+                            run_command("lms", &server_args)?;
+                            check_openai_compatible_endpoint(&client, &endpoint, backend_model)
+                                .await
+                                .context("LM Studio server started but did not become healthy")?
+                        }
+                    };
                 if !status.model_available {
                     anyhow::bail!(
                         "LM Studio started, but configured model {:?} is unavailable",

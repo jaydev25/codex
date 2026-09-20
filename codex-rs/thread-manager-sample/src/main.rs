@@ -29,6 +29,8 @@ use codex_core_api::ExtensionRegistryBuilder;
 use codex_core_api::Features;
 use codex_core_api::GhostSnapshotConfig;
 use codex_core_api::History;
+use codex_core_api::LocalAnalysisPolicy;
+use codex_core_api::LocalModelStorageOverrides;
 use codex_core_api::MemoriesConfig;
 use codex_core_api::ModelAvailabilityNuxConfig;
 use codex_core_api::MultiAgentV2Config;
@@ -68,6 +70,7 @@ use codex_core_api::item_event_to_server_notification;
 use codex_core_api::local_agent_graph_store_from_state_db;
 use codex_core_api::passthrough_image_store;
 use codex_core_api::resolve_installation_id;
+use codex_core_api::resolve_local_model_storage;
 use codex_core_api::set_default_originator;
 use codex_core_api::thread_store_from_config;
 
@@ -185,6 +188,15 @@ fn new_config(model: Option<String>, arg0_paths: Arg0DispatchPaths) -> anyhow::R
         .get(&model_provider_id)
         .context("OpenAI model provider should be available")?
         .clone();
+    let environment_models_dir = std::env::var_os("CODEX_LOCAL_MODELS_DIR");
+    let local_models = resolve_local_model_storage(
+        &codex_home,
+        None,
+        &LocalModelStorageOverrides::default(),
+        environment_models_dir.as_deref(),
+    )
+    .context("resolve local model storage")?;
+    let local_analysis = LocalAnalysisPolicy::from(None);
 
     let mut config = Config {
         config_layer_stack: ConfigLayerStack::default(),
@@ -199,6 +211,8 @@ fn new_config(model: Option<String>, arg0_paths: Arg0DispatchPaths) -> anyhow::R
         model_post_turn_compact_threshold_percent: 0,
         model_provider_id,
         model_provider,
+        local_models,
+        local_analysis,
         personality: None,
         permissions: Permissions::from_approval_and_profile(
             Constrained::allow_any(AskForApproval::Never),

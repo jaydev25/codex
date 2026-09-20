@@ -836,6 +836,8 @@ See the Codex keymap documentation for supported actions and examples."
         }
         if let Some(entry) = startup_hooks_browser {
             app.chat_widget.open_hooks_browser(entry);
+        } else if !start_in_agents_overview && app.config.local_analysis.enabled {
+            app.chat_widget.open_actor_model_popup();
         }
         app.update_visible_history_rows(tui.terminal.last_known_screen_size);
         let initial_session_started_at = Instant::now();

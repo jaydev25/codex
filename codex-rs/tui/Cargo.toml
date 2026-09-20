@@ -48,6 +48,7 @@ codex-file-search = { workspace = true }
 codex-git-utils = { workspace = true }
 codex-http-client = { workspace = true }
 codex-login = { workspace = true }
+codex-local-models = { workspace = true }
 codex-mermaid = { workspace = true }
 codex-message-history = { workspace = true }
 codex-model-provider = { workspace = true }
@@ -98,6 +99,7 @@ ratatui = { workspace = true, features = [
 ] }
 ratatui-macros = { workspace = true }
 regex-lite = { workspace = true }
+reqwest = { workspace = true }
 rmcp = { workspace = true, features = ["server", "transport-streamable-http-server"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true, features = ["preserve_order"] }

@@ -13,6 +13,81 @@
 - Repository map: [features.md](features.md)
 - Work, risks, and decisions: [trackers.md](trackers.md)
 
+## 2026-09-20 — Existing LM Studio model support and setup guide
+
+### Outcome
+
+- Added `require_registered_model` to local-analysis configuration. It defaults
+  to `true`; setting it to `false` explicitly enables an externally managed
+  loopback model without adding a fake Codex registry entry.
+- Added [local-model-setup.md](../local-model-setup.md) covering build, storage,
+  existing LM Studio models, Codex-managed downloads, activation, verification,
+  normal use, and troubleshooting.
+- Confirmed the running LM Studio server exposes existing Qwen models and
+  successfully exercised strict JSON-schema completion with
+  `qwen2.5-coder-7b-instruct`.
+- Added an actor-model picker that opens at interactive startup when local
+  analysis is enabled. `/act-model` reopens the live LM Studio list and
+  `/act-model <exact-id>` supports direct selection.
+- Actor selection persists the external-model settings and requests an active
+  user-config reload without altering the cloud model.
+- Added persistent, content-free local-analysis accounting under `CODEX_HOME`.
+  Successful offloads record byte and approximate-token counts, and `/status`
+  combines those totals with the existing server-authoritative five-hour and
+  weekly rate-limit windows.
+
+### Validation
+
+- `cargo test -p codex-local-models` with two build jobs — 29 tests passed,
+  including external-model routing without a registry entry.
+- `just write-config-schema` with two build jobs — passed and regenerated the
+  user configuration schema.
+- `cargo check -p codex-tui --lib` with two build jobs — passed after the
+  startup picker, slash command, persistence, and reload integration.
+- Focused local-analysis statistics aggregation test and `cargo check -p
+  codex-tui --lib` with two build jobs — passed.
+- `cargo test -p codex-tui
+  slash_command::tests::actor_model_command_supports_picker_and_direct_selection
+  --lib` with two build jobs — passed.
+- `cargo check -p codex-thread-manager-sample` with two build jobs — passed after
+  initializing the new local-model configuration fields in the sample.
+- `cargo build --release -p codex-cli --bin codex` with two build jobs — passed;
+  installed as `codex-local.exe`, confirmed shared ChatGPT authentication, and
+  enabled the LM Studio actor-picker configuration.
+- Live `POST /v1/chat/completions` against LM Studio — returned schema-conforming
+  `{ "ok": true }` from `qwen2.5-coder-7b-instruct`.
+
+### Decisions, risks, and follow-up
+
+- Registry bypass is opt-in and does not relax loopback enforcement, bounded
+  input, raw-artifact retention, or cloud ownership of decisions.
+- Next build the final binary with the two-job cap, configure the exact LM
+  Studio model ID, run `local-model status`, and exercise one large routed test.
+
+## 2026-09-20 — Hugging Face model search
+
+### Outcome
+
+- Added `codex local-model search <query> [--limit <1..100>] [--json]`.
+- Search is read-only, supports `HF_TOKEN`, orders results by Hugging Face
+  download count, and returns repository ID, downloads, likes, and pipeline tag.
+- Results feed directly into the existing inspect and pinned-download workflow.
+
+### Validation
+
+- `cargo test -p codex-local-models` — 28 tests passed, including the exact
+  Hugging Face search query contract and response defaults.
+- `CARGO_BUILD_JOBS=2 cargo check -p codex-cli --lib` — passed.
+- The uncapped CLI check first exhausted Windows memory and corrupted temporary
+  compiler metadata; the established two-job cap recovered without source
+  changes.
+
+### Decisions, risks, and follow-up
+
+- Search returns repositories rather than guessing an artifact. Users inspect
+  repository files and explicitly choose the GGUF filename and revision before
+  downloading.
+
 ## 2026-09-20 — LM Studio GGUF activation bridge
 
 ### Outcome
@@ -23,12 +98,18 @@
 - The bridge preserves the Codex artifact with `lms import --copy`, requests
   full GPU offload, assigns the configured backend model identifier, binds the
   API server to `127.0.0.1`, and verifies availability after startup.
+- Loading targets the repository plus exact artifact filename, avoiding an
+  ambiguous first match when multiple GGUF quantizations are imported. An
+  already healthy server is reused instead of starting it again.
 - Dry-run mode prints quoted commands without importing, loading, or starting
   the server.
 
 ### Validation
 
 - `cargo check -p codex-cli --lib` — passed after the activation bridge.
+- `cargo run -p codex-cli --bin codex -- local-model activate-lm-studio
+  --help` — full binary linked successfully and displayed the registered command,
+  required model ID, configuration overrides, and dry-run flag.
 - `cargo fmt --all` — completed with the repository's existing stable-Rust
   warnings for nightly-only import formatting.
 

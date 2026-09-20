@@ -820,6 +820,44 @@ impl ConfigEditsBuilder {
         self
     }
 
+    pub fn set_local_actor_model(mut self, model: &str) -> Self {
+        self.edits.extend([
+            ConfigEdit::SetPath {
+                segments: vec![
+                    "local_models".to_string(),
+                    "analysis".to_string(),
+                    "enabled".to_string(),
+                ],
+                value: value(true),
+            },
+            ConfigEdit::SetPath {
+                segments: vec![
+                    "local_models".to_string(),
+                    "analysis".to_string(),
+                    "model_id".to_string(),
+                ],
+                value: value(format!("lm-studio:{model}")),
+            },
+            ConfigEdit::SetPath {
+                segments: vec![
+                    "local_models".to_string(),
+                    "analysis".to_string(),
+                    "require_registered_model".to_string(),
+                ],
+                value: value(false),
+            },
+            ConfigEdit::SetPath {
+                segments: vec![
+                    "local_models".to_string(),
+                    "analysis".to_string(),
+                    "backend_model".to_string(),
+                ],
+                value: value(model.to_string()),
+            },
+        ]);
+        self
+    }
+
     pub fn set_hide_full_access_warning(mut self, acknowledged: bool) -> Self {
         self.edits
             .push(ConfigEdit::SetNoticeHideFullAccessWarning(acknowledged));

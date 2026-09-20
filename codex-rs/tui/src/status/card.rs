@@ -12,6 +12,8 @@ use crate::width::display_width;
 use chrono::DateTime;
 use chrono::Local;
 use codex_app_server_protocol::AskForApproval;
+use codex_local_models::LocalAnalysisStats;
+use codex_local_models::load_local_analysis_stats;
 use codex_model_provider_info::WireApi;
 use codex_protocol::ThreadId;
 use codex_protocol::account::PlanType;
@@ -143,6 +145,7 @@ struct StatusHistoryCell {
     token_usage: StatusTokenUsageData,
     rate_limit_state: Arc<RwLock<StatusRateLimitState>>,
     thread_usage: StatusThreadUsage,
+    local_analysis_stats: LocalAnalysisStats,
 }
 
 #[cfg(test)]
@@ -382,6 +385,8 @@ impl StatusHistoryCell {
         }));
         let agents_summary = Arc::new(RwLock::new(agents_summary));
         let thread_usage = StatusThreadUsage::default();
+        let local_analysis_stats =
+            load_local_analysis_stats(&config.codex_home).unwrap_or_default();
 
         Self {
             model_name,
@@ -400,6 +405,7 @@ impl StatusHistoryCell {
             agents_summary,
             rate_limit_state,
             thread_usage,
+            local_analysis_stats,
         }
     }
 
@@ -798,6 +804,10 @@ impl StatusHistoryCell {
             push_label(&mut labels, &mut seen, "Context window");
         }
         self.collect_rate_limit_labels(&rate_limit_state, &mut seen, &mut labels);
+        if self.local_analysis_stats.successful_jobs > 0 {
+            push_label(&mut labels, &mut seen, "Local actor");
+            push_label(&mut labels, &mut seen, "Est. tokens avoided");
+        }
         self.thread_usage.push_labels(&mut labels, &mut seen);
 
         let formatter = FieldFormatter::from_labels(labels.iter().map(String::as_str));
@@ -887,6 +897,26 @@ impl StatusHistoryCell {
         }
 
         lines.extend(self.rate_limit_lines(&rate_limit_state, available_inner_width, &formatter));
+        if self.local_analysis_stats.successful_jobs > 0 {
+            let raw_mib = self.local_analysis_stats.raw_bytes as f64 / (1024.0 * 1024.0);
+            let forwarded_mib =
+                self.local_analysis_stats.forwarded_bytes as f64 / (1024.0 * 1024.0);
+            lines.push(formatter.line(
+                "Local actor",
+                vec![Span::from(format!(
+                    "{} jobs · {raw_mib:.2} MiB raw → {forwarded_mib:.2} MiB evidence",
+                    self.local_analysis_stats.successful_jobs
+                ))],
+            ));
+            lines.push(formatter.line(
+                "Est. tokens avoided",
+                vec![Span::from(format_tokens_compact(
+                    self.local_analysis_stats
+                        .estimated_cloud_input_tokens_avoided
+                        .min(i64::MAX as u64) as i64,
+                )), Span::from(" (approximate)").dim()],
+            ));
+        }
         let thread_usage_lines = self.thread_usage.lines(&formatter, value_width);
         if !thread_usage_lines.is_empty() {
             lines.push(Line::from(Vec::<Span<'static>>::new()));

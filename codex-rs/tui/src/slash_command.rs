@@ -13,6 +13,7 @@ pub enum SlashCommand {
     // DO NOT ALPHA-SORT! Enum order is presentation order in the popup, so
     // more frequently used commands should be listed first.
     Model,
+    ActModel,
     Ide,
     Permissions,
     Keymap,
@@ -125,6 +126,7 @@ impl SlashCommand {
             SlashCommand::MemoryDrop => "DO NOT USE",
             SlashCommand::MemoryUpdate => "DO NOT USE",
             SlashCommand::Model => "choose what model and reasoning effort to use",
+            SlashCommand::ActModel => "choose the local LM Studio actor model",
             SlashCommand::Ide => {
                 "include current selection, open files, and other context from your IDE"
             }
@@ -163,6 +165,7 @@ impl SlashCommand {
         matches!(
             self,
             SlashCommand::Review
+                | SlashCommand::ActModel
                 | SlashCommand::Rename
                 | SlashCommand::New
                 | SlashCommand::Clear
@@ -257,6 +260,7 @@ impl SlashCommand {
             SlashCommand::Diff
             | SlashCommand::Resume
             | SlashCommand::Model
+            | SlashCommand::ActModel
             | SlashCommand::Permissions
             | SlashCommand::Copy
             | SlashCommand::Raw
@@ -322,6 +326,13 @@ mod tests {
     #[test]
     fn stop_command_is_canonical_name() {
         assert_eq!(SlashCommand::Stop.command(), "stop");
+    }
+
+    #[test]
+    fn actor_model_command_supports_picker_and_direct_selection() {
+        assert_eq!(SlashCommand::ActModel.command(), "act-model");
+        assert!(SlashCommand::ActModel.supports_inline_args());
+        assert!(SlashCommand::ActModel.available_during_task());
     }
 
     #[test]

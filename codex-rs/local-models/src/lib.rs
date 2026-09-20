@@ -10,17 +10,81 @@ use std::ffi::OsStr;
 use std::fs;
 use std::io;
 use std::io::Read;
+use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
 use tokio::io::AsyncWriteExt;
 use url::Url;
 
 pub const LOCAL_MODELS_DIR_ENV: &str = "CODEX_LOCAL_MODELS_DIR";
+pub const LOCAL_ANALYSIS_STATS_FILE: &str = "local-analysis-stats.jsonl";
 
 const DEFAULT_MODELS_DIR_NAME: &str = "models";
 const DEFAULT_DOWNLOADS_DIR_NAME: &str = ".downloads";
 const REGISTRY_FILE_NAME: &str = "registry.json";
 const REGISTRY_SCHEMA_VERSION: u32 = 1;
+
+/// One successful local-analysis offload recorded without retaining command content.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct LocalAnalysisStatsEvent {
+    pub raw_bytes: u64,
+    pub forwarded_bytes: u64,
+    pub raw_estimated_tokens: u64,
+    pub forwarded_estimated_tokens: u64,
+}
+
+/// Aggregate local-analysis savings derived from the append-only event ledger.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct LocalAnalysisStats {
+    pub successful_jobs: u64,
+    pub raw_bytes: u64,
+    pub forwarded_bytes: u64,
+    pub estimated_cloud_input_tokens_avoided: u64,
+}
+
+pub fn append_local_analysis_stats_event(
+    codex_home: &Path,
+    event: &LocalAnalysisStatsEvent,
+) -> io::Result<()> {
+    fs::create_dir_all(codex_home)?;
+    let mut encoded = serde_json::to_vec(event).map_err(io::Error::other)?;
+    encoded.push(b'\n');
+    let mut file = fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(codex_home.join(LOCAL_ANALYSIS_STATS_FILE))?;
+    file.write_all(&encoded)
+}
+
+pub fn load_local_analysis_stats(codex_home: &Path) -> io::Result<LocalAnalysisStats> {
+    let path = codex_home.join(LOCAL_ANALYSIS_STATS_FILE);
+    let contents = match fs::read_to_string(path) {
+        Ok(contents) => contents,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {
+            return Ok(LocalAnalysisStats::default());
+        }
+        Err(error) => return Err(error),
+    };
+    let mut stats = LocalAnalysisStats::default();
+    for line in contents.lines().filter(|line| !line.trim().is_empty()) {
+        let event: LocalAnalysisStatsEvent = serde_json::from_str(line).map_err(|error| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("invalid local analysis stats: {error}"),
+            )
+        })?;
+        stats.successful_jobs = stats.successful_jobs.saturating_add(1);
+        stats.raw_bytes = stats.raw_bytes.saturating_add(event.raw_bytes);
+        stats.forwarded_bytes = stats.forwarded_bytes.saturating_add(event.forwarded_bytes);
+        stats.estimated_cloud_input_tokens_avoided =
+            stats.estimated_cloud_input_tokens_avoided.saturating_add(
+                event
+                    .raw_estimated_tokens
+                    .saturating_sub(event.forwarded_estimated_tokens),
+            );
+    }
+    Ok(stats)
+}
 
 /// Local-model settings loaded from `config.toml`.
 #[derive(Clone, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
@@ -31,7 +95,7 @@ pub struct LocalModelsToml {
 }
 
 /// Policy for routing high-volume deterministic output to a local analyst.
-#[derive(Clone, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
 #[schemars(deny_unknown_fields)]
 pub struct LocalAnalysisToml {
     /// Opt in to local analysis. The selected cloud model remains authoritative.
@@ -39,6 +103,10 @@ pub struct LocalAnalysisToml {
     pub enabled: bool,
     /// Registered local model ID used by the future analysis worker.
     pub model_id: Option<String>,
+    /// Require `model_id` to exist in the Codex registry. Disable only for an
+    /// externally managed loopback model such as one already owned by LM Studio.
+    #[serde(default = "default_require_registered_model")]
+    pub require_registered_model: bool,
     /// Minimum artifact size that can justify local inference.
     pub min_output_bytes: Option<u64>,
     /// Maximum bytes sent to a local model for one artifact.
@@ -47,6 +115,20 @@ pub struct LocalAnalysisToml {
     pub backend_url: Option<String>,
     /// Model name exposed by the local inference server.
     pub backend_model: Option<String>,
+}
+
+impl Default for LocalAnalysisToml {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            model_id: None,
+            require_registered_model: true,
+            min_output_bytes: None,
+            max_input_bytes: None,
+            backend_url: None,
+            backend_model: None,
+        }
+    }
 }
 
 pub const DEFAULT_MIN_ANALYSIS_OUTPUT_BYTES: u64 = 64 * 1024;
@@ -58,6 +140,7 @@ pub const EVIDENCE_SCHEMA_VERSION: u32 = 1;
 pub struct LocalAnalysisPolicy {
     pub enabled: bool,
     pub model_id: Option<String>,
+    pub require_registered_model: bool,
     pub min_output_bytes: u64,
     pub max_input_bytes: u64,
     pub backend_url: Option<String>,
@@ -69,6 +152,9 @@ impl From<Option<&LocalAnalysisToml>> for LocalAnalysisPolicy {
         Self {
             enabled: value.is_some_and(|value| value.enabled),
             model_id: value.and_then(|value| value.model_id.clone()),
+            require_registered_model: value
+                .map(|value| value.require_registered_model)
+                .unwrap_or(true),
             min_output_bytes: value
                 .and_then(|value| value.min_output_bytes)
                 .unwrap_or(DEFAULT_MIN_ANALYSIS_OUTPUT_BYTES),
@@ -79,6 +165,10 @@ impl From<Option<&LocalAnalysisToml>> for LocalAnalysisPolicy {
             backend_model: value.and_then(|value| value.backend_model.clone()),
         }
     }
+}
+
+fn default_require_registered_model() -> bool {
+    true
 }
 
 /// Bounded deterministic-output families eligible for local analysis.
@@ -430,10 +520,11 @@ pub fn route_local_analysis(
     let Some(model_id) = policy.model_id.as_ref() else {
         return bypass(LocalAnalysisBypassReason::MissingModelSelection);
     };
-    if !registry
-        .models
-        .iter()
-        .any(|model| &model.model_id == model_id)
+    if policy.require_registered_model
+        && !registry
+            .models
+            .iter()
+            .any(|model| &model.model_id == model_id)
     {
         return bypass(LocalAnalysisBypassReason::ModelNotRegistered);
     }
@@ -805,6 +896,58 @@ pub struct HuggingFaceRepoFile {
     pub rfilename: String,
     #[serde(default)]
     pub size: Option<u64>,
+}
+
+/// Summary returned by Hugging Face model search.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct HuggingFaceModelSearchResult {
+    pub id: String,
+    #[serde(default)]
+    pub downloads: u64,
+    #[serde(default)]
+    pub likes: u64,
+    #[serde(default)]
+    pub pipeline_tag: Option<String>,
+}
+
+/// Searches public Hugging Face model repositories without downloading weights.
+pub async fn search_hugging_face_models(
+    client: &reqwest::Client,
+    endpoint: &Url,
+    query: &str,
+    limit: u8,
+    token: Option<&str>,
+) -> io::Result<Vec<HuggingFaceModelSearchResult>> {
+    if query.trim().is_empty() || limit == 0 || limit > 100 {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "Hugging Face search requires a query and a limit from 1 through 100",
+        ));
+    }
+    let mut url = endpoint.clone();
+    url.path_segments_mut()
+        .map_err(|()| io::Error::new(io::ErrorKind::InvalidInput, "invalid Hugging Face URL"))?
+        .push("api")
+        .push("models");
+    url.query_pairs_mut()
+        .append_pair("search", query.trim())
+        .append_pair("limit", &limit.to_string())
+        .append_pair("sort", "downloads")
+        .append_pair("direction", "-1");
+    let mut request = client.get(url);
+    if let Some(token) = token {
+        request = request.bearer_auth(token);
+    }
+    let response = request.send().await.map_err(io::Error::other)?;
+    if !response.status().is_success() {
+        return Err(io::Error::other(format!(
+            "Hugging Face model search failed with HTTP {}",
+            response.status()
+        )));
+    }
+    let bytes = response.bytes().await.map_err(io::Error::other)?;
+    serde_json::from_slice(&bytes)
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))
 }
 
 /// Resolves a model branch, tag, or commit and returns its repository metadata.

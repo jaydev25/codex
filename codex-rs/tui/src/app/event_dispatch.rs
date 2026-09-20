@@ -1810,6 +1810,29 @@ impl App {
                         .await;
                 }
             }
+            AppEvent::ActorModelsLoaded(result) => match result {
+                Ok(models) => self.chat_widget.show_actor_model_popup(models),
+                Err(error) => self
+                    .chat_widget
+                    .add_error_message(format!("Could not list LM Studio models: {error}")),
+            },
+            AppEvent::UpdateActorModel(model) => {
+                let apply_result = ConfigEditsBuilder::for_config_path(
+                    self.local_settings.user_config_path.as_path(),
+                )
+                .set_local_actor_model(&model)
+                .apply()
+                .await;
+                match apply_result {
+                    Ok(()) => {
+                        self.chat_widget.set_actor_model(model);
+                        app_server.reload_user_config().await?;
+                    }
+                    Err(error) => self
+                        .chat_widget
+                        .add_error_message(format!("Failed to save actor model: {error}")),
+                }
+            }
             AppEvent::AstraSelectedFromModelPicker { thread_id, model, action } => {
                 // Check and apply in the same event so a queued backend update cannot turn a
                 // no-op picker confirmation into a sparkle.

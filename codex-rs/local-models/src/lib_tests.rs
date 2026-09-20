@@ -10,9 +10,47 @@ use wiremock::ResponseTemplate;
 use wiremock::matchers::body_partial_json;
 use wiremock::matchers::method;
 use wiremock::matchers::path;
+use wiremock::matchers::query_param;
 
 fn abs(path: &str) -> AbsolutePathBuf {
     test_path_buf(path).abs()
+}
+
+#[tokio::test]
+async fn searches_hugging_face_models_by_download_count() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/models"))
+        .and(query_param("search", "qwen coder gguf"))
+        .and(query_param("limit", "2"))
+        .and(query_param("sort", "downloads"))
+        .and(query_param("direction", "-1"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([
+            {
+                "id": "owner/model-a",
+                "downloads": 42,
+                "likes": 7,
+                "pipeline_tag": "text-generation"
+            },
+            {"id": "owner/model-b"}
+        ])))
+        .mount(&server)
+        .await;
+
+    let results = search_hugging_face_models(
+        &reqwest::Client::new(),
+        &Url::parse(&format!("{}/", server.uri())).expect("mock URL"),
+        " qwen coder gguf ",
+        2,
+        None,
+    )
+    .await
+    .expect("search should succeed");
+
+    assert_eq!(results.len(), 2);
+    assert_eq!(results[0].id, "owner/model-a");
+    assert_eq!(results[0].downloads, 42);
+    assert_eq!(results[1].downloads, 0);
 }
 
 #[test]
@@ -467,6 +505,7 @@ fn routes_large_artifact_to_registered_local_model() {
     let policy = LocalAnalysisPolicy {
         enabled: true,
         model_id: Some("coder".to_owned()),
+        require_registered_model: true,
         min_output_bytes: 4,
         max_input_bytes: 8,
         backend_url: Some("http://127.0.0.1:1234/v1".to_owned()),
@@ -494,10 +533,39 @@ fn routes_large_artifact_to_registered_local_model() {
 }
 
 #[test]
+fn routes_to_explicitly_allowed_externally_managed_model() {
+    let policy = LocalAnalysisPolicy {
+        enabled: true,
+        model_id: Some("lm-studio-qwen".to_owned()),
+        require_registered_model: false,
+        min_output_bytes: 4,
+        max_input_bytes: 8,
+        backend_url: Some("http://127.0.0.1:1234/v1".to_owned()),
+        backend_model: Some("qwen-coder".to_owned()),
+    };
+    let artifact = AnalysisArtifact::from_bytes(
+        AnalysisWorkloadKind::Test,
+        b"twelve bytes",
+        policy.max_input_bytes,
+        true,
+    );
+
+    assert_eq!(
+        route_local_analysis(&policy, &LocalModelRegistry::default(), &artifact),
+        LocalAnalysisRoute::Local {
+            model_id: "lm-studio-qwen".to_owned(),
+            input_bytes: 8,
+            truncated: true,
+        }
+    );
+}
+
+#[test]
 fn bypasses_local_analysis_when_raw_fallback_is_unavailable() {
     let policy = LocalAnalysisPolicy {
         enabled: true,
         model_id: Some("coder".to_owned()),
+        require_registered_model: true,
         min_output_bytes: 1,
         max_input_bytes: 8,
         backend_url: Some("http://127.0.0.1:1234/v1".to_owned()),
@@ -748,6 +816,7 @@ async fn completed_command_pipeline_returns_evidence() {
     let policy = LocalAnalysisPolicy {
         enabled: true,
         model_id: Some("coder".to_owned()),
+        require_registered_model: true,
         min_output_bytes: 1,
         max_input_bytes: 1024,
         backend_url: Some(format!("{}/v1", server.uri())),
@@ -784,6 +853,7 @@ async fn completed_command_pipeline_falls_back_when_backend_fails() {
     let policy = LocalAnalysisPolicy {
         enabled: true,
         model_id: Some("coder".to_owned()),
+        require_registered_model: true,
         min_output_bytes: 1,
         max_input_bytes: 1024,
         backend_url: Some(format!("{}/v1", server.uri())),
@@ -809,4 +879,39 @@ async fn completed_command_pipeline_falls_back_when_backend_fails() {
         outcome,
         LocalAnalysisOutcome::FailedCloudRaw { .. }
     ));
+}
+
+#[test]
+fn local_analysis_stats_aggregate_successful_offloads() {
+    let directory = tempdir().unwrap();
+    append_local_analysis_stats_event(
+        directory.path(),
+        &LocalAnalysisStatsEvent {
+            raw_bytes: 10_000,
+            forwarded_bytes: 1_000,
+            raw_estimated_tokens: 2_500,
+            forwarded_estimated_tokens: 250,
+        },
+    )
+    .unwrap();
+    append_local_analysis_stats_event(
+        directory.path(),
+        &LocalAnalysisStatsEvent {
+            raw_bytes: 20_000,
+            forwarded_bytes: 2_000,
+            raw_estimated_tokens: 5_000,
+            forwarded_estimated_tokens: 500,
+        },
+    )
+    .unwrap();
+
+    assert_eq!(
+        load_local_analysis_stats(directory.path()).unwrap(),
+        LocalAnalysisStats {
+            successful_jobs: 2,
+            raw_bytes: 30_000,
+            forwarded_bytes: 3_000,
+            estimated_cloud_input_tokens_avoided: 6_750,
+        }
+    );
 }

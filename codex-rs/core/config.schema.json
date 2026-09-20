@@ -2162,6 +2162,11 @@
         "model_id": {
           "description": "Registered local model ID used by the future analysis worker.",
           "type": "string"
+        },
+        "require_registered_model": {
+          "default": true,
+          "description": "Require `model_id` to exist in the Codex registry. Disable only for an externally managed loopback model such as one already owned by LM Studio.",
+          "type": "boolean"
         }
       },
       "type": "object"

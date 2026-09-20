@@ -34,7 +34,9 @@ use crate::unified_exec::generate_chunk_id;
 use codex_features::Feature;
 use codex_local_models::LocalAnalysisBypassReason;
 use codex_local_models::LocalAnalysisOutcome;
+use codex_local_models::LocalAnalysisStatsEvent;
 use codex_local_models::analyze_completed_command;
+use codex_local_models::append_local_analysis_stats_event;
 use codex_local_models::load_registry;
 use codex_otel::SessionTelemetry;
 use codex_otel::TOOL_CALL_UNIFIED_EXEC_METRIC;
@@ -558,11 +560,20 @@ pub(super) async fn maybe_replace_with_local_analysis(
         .as_ref()
         .map(|path| path.display().to_string())
         .unwrap_or_else(|| "unavailable".to_string());
-    response.raw_output = format!(
+    let replacement = format!(
         "Untrusted local analysis (cloud model must verify citations):\n{digest_json}\nRaw artifact: {raw_path}\nRaw bytes: {}",
         artifact.byte_len
-    )
-    .into_bytes();
+    );
+    let stats_event = LocalAnalysisStatsEvent {
+        raw_bytes: artifact.byte_len,
+        forwarded_bytes: replacement.len() as u64,
+        raw_estimated_tokens: approx_token_count(&raw_output) as u64,
+        forwarded_estimated_tokens: approx_token_count(&replacement) as u64,
+    };
+    if let Err(error) = append_local_analysis_stats_event(&config.codex_home, &stats_event) {
+        tracing::warn!(%error, "failed to persist local analysis statistics");
+    }
+    response.raw_output = replacement.into_bytes();
 }
 
 fn emit_local_analysis_metric(

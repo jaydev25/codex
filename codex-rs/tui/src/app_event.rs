@@ -1119,6 +1119,12 @@ pub(crate) enum AppEvent {
     /// Update the current model slug in the running app and widget.
     UpdateModel(String),
 
+    /// Models returned by the configured loopback local-analysis endpoint.
+    ActorModelsLoaded(Result<Vec<String>, String>),
+
+    /// Persist and activate the selected local evidence-analysis model.
+    UpdateActorModel(String),
+
     /// Apply a final Astra picker action and offer the flourish only if it changed the model on
     /// its original task. Automatic model updates do not use this event.
     AstraSelectedFromModelPicker {

@@ -340,6 +340,7 @@ impl ChatWidget {
                 self.open_model_popup();
                 self.defer_input_until_settings_applied();
             }
+            SlashCommand::ActModel => self.open_actor_model_popup(),
             SlashCommand::Plan => {
                 self.apply_plan_slash_command();
             }
@@ -758,6 +759,10 @@ impl ChatWidget {
         } = prepared;
         let trimmed = args.trim();
         match cmd {
+            SlashCommand::ActModel => {
+                self.app_event_tx
+                    .send(AppEvent::UpdateActorModel(trimmed.to_string()));
+            }
             SlashCommand::Export if trimmed.is_empty() => self.show_transcript_export_popup(),
             SlashCommand::Export => {
                 self.set_queue_autosend_suppressed(/*suppressed*/ true);
@@ -1243,6 +1248,7 @@ impl ChatWidget {
             | SlashCommand::Compact
             | SlashCommand::Review
             | SlashCommand::Model
+            | SlashCommand::ActModel
             | SlashCommand::Plan
             | SlashCommand::Goal
             | SlashCommand::Side

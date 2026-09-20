@@ -19,7 +19,8 @@
 
 | ID       | Status      | Area                        | Outcome                                                                                                                                           | Owner | Next action                                                            |
 | -------- | ----------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ---------------------------------------------------------------------- |
-| ARCH-004 | Validate | Cloud/local analysis router | Route large test, lint, scanner, and log outputs to local analysis while the selected cloud model owns planning, diagnosis, edits, and acceptance | Codex | Download a GGUF, dry-run then execute LM Studio activation, and run one routed command |
+| ARCH-004 | Validate | Cloud/local analysis router | Route large test, lint, scanner, and log outputs to local analysis while the selected cloud model owns planning, diagnosis, edits, and acceptance | Codex | Build the binary, select Qwen through `/act-model`, and exercise one large routed command |
+| ARCH-005 | Validate | Hybrid usage statistics | Show server-authoritative five-hour/weekly limits in `/status` alongside persistent local-offload jobs, byte reduction, and estimated cloud-input tokens avoided | Codex | Rebuild the installed release, run one routed workload, and verify the new `/status` rows |
 
 ## Backlog
 
@@ -49,7 +50,7 @@ TODO comments, or crate names. Add only work explicitly requested or agreed.
 | RISK-005 | Watching | Supported deployments can split app-server and exec-server across different operating systems                                                                     | Use remote-executor-aware builders and cover foreign path/OS behavior in integration tests      |
 | RISK-006 | Resolved | The first `codex-core` test build exhausted Windows memory/page-file capacity while compiling in parallel (OS error 1455); no test assertion ran or failed        | A two-job Cargo cap compiled core and the complete CLI test graph without resource failure      |
 | RISK-007 | Open     | One existing Windows doctor snapshot fails to normalize its temporary config path after the repository move; it is unrelated to local-model behavior              | Diagnose separately; do not accept a machine-specific temporary path into the snapshot          |
-| RISK-008 | Open     | LM Studio CLI is installed and the RTX 3090 is available, but no local model is installed and the CLI currently times out while waking the desktop daemon       | Open/update LM Studio, download or import a compatible model, start its API server, then run the ARCH-004 live validation |
+| RISK-008 | Resolved | LM Studio initially timed out while waking its desktop daemon                                                                                                      | Server is now reachable; existing Qwen models are visible and strict structured chat completion succeeded                |
 
 ## Decisions
 

@@ -155,6 +155,7 @@ max_disk_gb = 500
 [local_models.analysis]
 enabled = true
 model_id = "local-log-analyst"
+require_registered_model = true
 min_output_bytes = 65536
 max_input_bytes = 2097152
 backend_url = "http://127.0.0.1:1234/v1"
@@ -174,10 +175,12 @@ The model-root precedence is:
 
 Storage configuration, runtime path resolution, the versioned registry,
 inspection, download, listing, and safe removal are implemented. Analysis is
-disabled by default. When enabled, only registered `model_id` values are
-eligible; outputs below `min_output_bytes` bypass local analysis, and inputs are
-bounded by `max_input_bytes`. Runtime activation remains a later lifecycle
-stage. The initial analysis adapter accepts only HTTP(S) loopback URLs and an
+disabled by default. When enabled, registered `model_id` values are required by
+default. `require_registered_model = false` explicitly permits an externally
+managed model already available in LM Studio; loopback-only transport and all
+evidence validation remain enforced. Outputs below `min_output_bytes` bypass
+local analysis, and inputs are bounded by `max_input_bytes`. The initial
+analysis adapter accepts only HTTP(S) loopback URLs and an
 OpenAI-compatible chat-completions surface, allowing an explicitly served model
 to analyze evidence without permitting raw logs to be sent to a remote host.
 Inference requests use the OpenAI-compatible `json_schema` response format with
@@ -192,6 +195,15 @@ Commands that remain active after their initial yield are evaluated when a
 later `write_stdin` call observes final completion. Routing telemetry contains
 only outcome/reason labels and artifact byte counts; it excludes command text,
 raw output, artifact paths, findings, and model responses.
+
+See [Configure and Run a Local Model](../local-model-setup.md) for both the
+existing LM Studio and Codex-managed GGUF workflows.
+
+When local analysis is enabled, the interactive TUI requests the configured
+loopback server's `/models` list at startup and presents an actor-model picker.
+`/act-model` reopens it and `/act-model <model-id>` selects directly. Selection
+is persisted as an explicitly external model and the active configuration is
+reloaded; it never changes the authoritative cloud model selected by `/model`.
 
 ### 2.6 Model Selection and Switching
 
@@ -225,16 +237,21 @@ codex local-model serve <model-id>
 codex local-model remove <model-id>
 ```
 
-`codex local-model path`, `codex local-model list [--json]`, `codex local-model
-status [--json]`, read-only remote
-inspection, safe removal, and the initial single-artifact download path are
-implemented. `status` probes `<backend_url>/models` with a five-second timeout,
+`codex local-model path`, `codex local-model search <query> [--limit <n>]
+[--json]`, `codex local-model list [--json]`, `codex local-model status
+[--json]`, read-only remote inspection, safe removal, and the initial
+single-artifact download path are implemented. Search uses the Hugging Face API,
+orders results by download count, accepts `HF_TOKEN`, and returns repository IDs
+for the inspect/download workflow. `status` probes `<backend_url>/models` with a five-second timeout,
 requires a loopback endpoint, lists the models exposed by the server, and exits
 with an error when the configured `backend_model` is unavailable.
 `activate-lm-studio` supports registered GGUF artifacts: it copies the artifact
 into LM Studio without removing the Codex-managed source, loads it with maximum
 GPU offload under `backend_model`, starts a loopback-only server on the port in
-`backend_url`, and verifies the model through `/models`. `--dry-run` prints the
+`backend_url` when one is not already healthy, and verifies the model through
+`/models`. The exact imported key includes the registered repository and
+artifact filename so multiple quantizations are not selected ambiguously.
+LM Studio activation requires an `http` loopback URL. `--dry-run` prints the
 three safely quoted `lms` commands without changing runtime state. The concrete
 download contract is:
 
@@ -255,8 +272,8 @@ optional SHA-256 digest, promote the completed artifact, and update the
 registry. `[local_models.storage].max_disk_gb` is enforced against existing
 artifacts, staging files, and incoming bytes. `local-model remove` deletes only
 registered artifact paths beneath the configured model directory; an outside
-path is rejected without changing the registry. Whole-repository snapshots,
-search, and backend-neutral activate/serve remain later lifecycle stages.
+path is rejected without changing the registry. Whole-repository snapshots and
+backend-neutral activate/serve remain later lifecycle stages.
 
 ---
 
