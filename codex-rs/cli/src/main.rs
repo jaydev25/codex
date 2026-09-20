@@ -67,6 +67,7 @@ mod doctor;
 mod exec_server_args_tests;
 mod exec_server_auth;
 mod exec_server_telemetry;
+mod local_model_cmd;
 mod marketplace_cmd;
 mod mcp_cmd;
 mod mcp_login;
@@ -169,6 +170,9 @@ enum Subcommand {
 
     /// Manage external MCP servers for Codex.
     Mcp(McpCli),
+
+    /// Inspect locally managed model artifacts and storage.
+    LocalModel(local_model_cmd::LocalModelCommand),
 
     /// Manage Codex plugins.
     Plugin(PluginCli),
@@ -1336,6 +1340,14 @@ async fn cli_main(
             let loader_overrides =
                 loader_overrides_for_profile(interactive.config_profile_v2.as_ref())?;
             mcp_cli.run(loader_overrides).await?;
+        }
+        Some(Subcommand::LocalModel(local_model_cli)) => {
+            reject_remote_mode_for_subcommand(
+                root_remote.as_deref(),
+                root_remote_auth_token_env.as_deref(),
+                "local-model",
+            )?;
+            local_model_cmd::run(local_model_cli, root_config_overrides).await?;
         }
         Some(Subcommand::Plugin(plugin_cli)) => {
             reject_remote_mode_for_subcommand(
@@ -2687,6 +2699,7 @@ fn unsupported_subcommand_name_for_strict_config(
         }
         Some(Subcommand::RemoteControl(remote_control)) => Some(remote_control.subcommand_name()),
         Some(Subcommand::Mcp(_)) => Some("mcp"),
+        Some(Subcommand::LocalModel(_)) => Some("local-model"),
         Some(Subcommand::Plugin(_)) => Some("plugin"),
         Some(Subcommand::MigrateRollouts(_)) => Some("migrate-rollouts"),
         #[cfg(any(target_os = "macos", target_os = "windows"))]

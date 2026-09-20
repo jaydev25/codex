@@ -32,6 +32,10 @@ use crate::unified_exec::UnifiedExecError;
 use crate::unified_exec::UnifiedExecProcessManager;
 use crate::unified_exec::generate_chunk_id;
 use codex_features::Feature;
+use codex_local_models::LocalAnalysisBypassReason;
+use codex_local_models::LocalAnalysisOutcome;
+use codex_local_models::analyze_completed_command;
+use codex_local_models::load_registry;
 use codex_otel::SessionTelemetry;
 use codex_otel::TOOL_CALL_UNIFIED_EXEC_METRIC;
 use codex_sandboxing::SandboxManager;
@@ -444,7 +448,18 @@ impl ExecCommandHandler {
             None => manager.exec_command(request, &context).await,
         };
         match result {
-            Ok(response) => Ok(boxed_tool_output(response)),
+            Ok(mut response) => {
+                if response.exit_code.is_some() {
+                    maybe_replace_with_local_analysis(
+                        &mut response,
+                        &hook_command,
+                        step_context.turn.config.as_ref(),
+                        &step_context.session_telemetry,
+                    )
+                    .await;
+                }
+                Ok(boxed_tool_output(response))
+            }
             Err(UnifiedExecError::SandboxDenied {
                 output,
                 original_token_count,
@@ -478,6 +493,104 @@ impl ExecCommandHandler {
                 )))
             }
         }
+    }
+}
+
+pub(super) async fn maybe_replace_with_local_analysis(
+    response: &mut ExecCommandToolOutput,
+    command: &str,
+    config: &crate::config::Config,
+    session_telemetry: &SessionTelemetry,
+) {
+    if !config.local_analysis.enabled {
+        return;
+    }
+    let Ok(registry) = load_registry(&config.local_models.registry_file) else {
+        return;
+    };
+    let artifact_dir = config.codex_home.join("analysis-artifacts");
+    let Ok(client) = reqwest::Client::builder()
+        .timeout(Duration::from_secs(30))
+        .build()
+    else {
+        return;
+    };
+    let raw_output = String::from_utf8_lossy(&response.raw_output);
+    let outcome = analyze_completed_command(
+        &client,
+        &config.local_analysis,
+        &registry,
+        &artifact_dir,
+        command,
+        &raw_output,
+        "Identify failures, group repeated diagnostics, and cite the decisive byte ranges.",
+    )
+    .await;
+    let (artifact, digest) = match outcome {
+        LocalAnalysisOutcome::Evidence { artifact, digest } => {
+            emit_local_analysis_metric(session_telemetry, "evidence", "none", artifact.byte_len);
+            (artifact, digest)
+        }
+        LocalAnalysisOutcome::CloudRaw { artifact, reason } => {
+            emit_local_analysis_metric(
+                session_telemetry,
+                "bypass",
+                local_analysis_reason_label(reason),
+                artifact.as_ref().map_or(0, |artifact| artifact.byte_len),
+            );
+            return;
+        }
+        LocalAnalysisOutcome::FailedCloudRaw { artifact, .. } => {
+            emit_local_analysis_metric(
+                session_telemetry,
+                "fallback",
+                "analysis_failed",
+                artifact.byte_len,
+            );
+            return;
+        }
+    };
+    let Ok(digest_json) = serde_json::to_string_pretty(&digest) else {
+        return;
+    };
+    let raw_path = artifact
+        .raw_artifact_path
+        .as_ref()
+        .map(|path| path.display().to_string())
+        .unwrap_or_else(|| "unavailable".to_string());
+    response.raw_output = format!(
+        "Untrusted local analysis (cloud model must verify citations):\n{digest_json}\nRaw artifact: {raw_path}\nRaw bytes: {}",
+        artifact.byte_len
+    )
+    .into_bytes();
+}
+
+fn emit_local_analysis_metric(
+    session_telemetry: &SessionTelemetry,
+    outcome: &'static str,
+    reason: &'static str,
+    artifact_bytes: u64,
+) {
+    let tags = [("outcome", outcome), ("reason", reason)];
+    session_telemetry.counter("codex.local_analysis.route", 1, &tags);
+    session_telemetry.histogram(
+        "codex.local_analysis.artifact_bytes",
+        i64::try_from(artifact_bytes).unwrap_or(i64::MAX),
+        &tags,
+    );
+}
+
+fn local_analysis_reason_label(reason: LocalAnalysisBypassReason) -> &'static str {
+    match reason {
+        LocalAnalysisBypassReason::Disabled => "disabled",
+        LocalAnalysisBypassReason::MissingModelSelection => "missing_model",
+        LocalAnalysisBypassReason::MissingBackendConfiguration => "missing_backend",
+        LocalAnalysisBypassReason::ModelNotRegistered => "model_not_registered",
+        LocalAnalysisBypassReason::OutputBelowThreshold => "below_threshold",
+        LocalAnalysisBypassReason::UnsupportedWorkload => "unsupported_workload",
+        LocalAnalysisBypassReason::RawArtifactUnavailable => "raw_unavailable",
+        LocalAnalysisBypassReason::CaptureFailed => "capture_failed",
+        LocalAnalysisBypassReason::InvalidPolicy => "invalid_policy",
     }
 }
 

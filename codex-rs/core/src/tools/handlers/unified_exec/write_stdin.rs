@@ -17,6 +17,7 @@ use codex_tools::ToolSpec;
 use serde::Deserialize;
 
 use super::super::shell_spec::create_write_stdin_tool;
+use super::exec_command::maybe_replace_with_local_analysis;
 use super::post_unified_exec_tool_use_payload;
 
 #[derive(Debug, Deserialize)]
@@ -81,7 +82,7 @@ impl WriteStdinHandler {
         let args: WriteStdinArgs = parse_arguments(&arguments)?;
         let context =
             UnifiedExecContext::new(session.clone(), step_context, cancellation_token, call_id);
-        let response = session
+        let mut response = session
             .services
             .unified_exec_manager
             .write_stdin(
@@ -116,6 +117,18 @@ impl WriteStdinHandler {
                 };
                 FunctionCallError::RespondToModel(message)
             })?;
+
+        if response.exit_code.is_some()
+            && let Some(command) = response.hook_command.clone()
+        {
+            maybe_replace_with_local_analysis(
+                &mut response,
+                &command,
+                context.step_context.turn.config.as_ref(),
+                &context.step_context.session_telemetry,
+            )
+            .await;
+        }
 
         Ok(boxed_tool_output(response))
     }

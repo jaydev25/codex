@@ -40,6 +40,7 @@ codex-features = { workspace = true }
 codex-feedback = { workspace = true }
 codex-file-system = { workspace = true }
 codex-login = { workspace = true }
+codex-local-models = { workspace = true }
 codex-memories-read = { workspace = true }
 codex-mcp = { workspace = true }
 codex-model-provider-info = { workspace = true }
@@ -95,6 +96,7 @@ indexmap = { workspace = true }
 libc = { workspace = true }
 once_cell = { workspace = true }
 rand = { workspace = true }
+reqwest = { workspace = true }
 regex-lite = { workspace = true }
 rmcp = { workspace = true, default-features = false, features = [
     "base64",

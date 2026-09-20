@@ -80,6 +80,11 @@ use codex_git_utils::resolve_root_git_project_for_trust;
 use codex_http_client::HttpClientFactory;
 use codex_http_client::OutboundProxyPolicy;
 use codex_install_context::InstallContext;
+use codex_local_models::LOCAL_MODELS_DIR_ENV;
+use codex_local_models::LocalAnalysisPolicy;
+use codex_local_models::LocalModelStorageConfig;
+use codex_local_models::LocalModelStorageOverrides;
+use codex_local_models::resolve_local_model_storage;
 use codex_login::AuthManagerConfig;
 use codex_login::AuthRouteConfig;
 use codex_mcp::DEFAULT_OPTIONAL_MCP_STARTUP_GRACE;
@@ -640,6 +645,12 @@ pub struct Config {
 
     /// Info needed to make an API request to the model.
     pub model_provider: ModelProviderInfo,
+
+    /// Effective storage configuration for locally managed model artifacts.
+    pub local_models: LocalModelStorageConfig,
+
+    /// Effective policy for bounded local analysis of deterministic output.
+    pub local_analysis: LocalAnalysisPolicy,
 
     /// Deprecated: `friendly` and `pragmatic` no longer select a style.
     pub personality: Option<Personality>,
@@ -4174,6 +4185,18 @@ impl Config {
         )
         .map_err(std::io::Error::from)?;
         let otel = otel::resolve_config(cfg.otel.unwrap_or_default(), &mut startup_warnings);
+        let environment_models_dir = std::env::var_os(LOCAL_MODELS_DIR_ENV);
+        let local_analysis = LocalAnalysisPolicy::from(
+            cfg.local_models
+                .as_ref()
+                .and_then(|local_models| local_models.analysis.as_ref()),
+        );
+        let local_models = resolve_local_model_storage(
+            &codex_home,
+            cfg.local_models.as_ref(),
+            &LocalModelStorageOverrides::default(),
+            environment_models_dir.as_deref(),
+        )?;
         let config = Self {
             model,
             service_tier,
@@ -4188,6 +4211,8 @@ impl Config {
                 .unwrap_or_default(),
             model_provider_id,
             model_provider,
+            local_models,
+            local_analysis,
             cwd: resolved_cwd,
             workspace_roots: workspace_roots.clone(),
             workspace_roots_explicit,

@@ -2130,6 +2130,84 @@
     "LegacyAppPathString": {
       "type": "string"
     },
+    "LocalAnalysisToml": {
+      "additionalProperties": false,
+      "description": "Policy for routing high-volume deterministic output to a local analyst.",
+      "properties": {
+        "backend_model": {
+          "description": "Model name exposed by the local inference server.",
+          "type": "string"
+        },
+        "backend_url": {
+          "description": "Loopback OpenAI-compatible base URL, such as http://127.0.0.1:1234/v1.",
+          "type": "string"
+        },
+        "enabled": {
+          "default": false,
+          "description": "Opt in to local analysis. The selected cloud model remains authoritative.",
+          "type": "boolean"
+        },
+        "max_input_bytes": {
+          "description": "Maximum bytes sent to a local model for one artifact.",
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "min_output_bytes": {
+          "description": "Minimum artifact size that can justify local inference.",
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "model_id": {
+          "description": "Registered local model ID used by the future analysis worker.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "LocalModelStorageToml": {
+      "additionalProperties": false,
+      "description": "Storage settings for downloaded model artifacts.",
+      "properties": {
+        "max_disk_gb": {
+          "description": "Optional storage quota in GiB, enforced while artifacts are downloaded.",
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "models_dir": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/AbsolutePathBuf"
+            }
+          ],
+          "description": "Directory containing verified model artifacts and the local registry."
+        },
+        "temp_dir": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/AbsolutePathBuf"
+            }
+          ],
+          "description": "Directory used for incomplete and resumable downloads."
+        }
+      },
+      "type": "object"
+    },
+    "LocalModelsToml": {
+      "additionalProperties": false,
+      "description": "Local-model settings loaded from `config.toml`.",
+      "properties": {
+        "analysis": {
+          "$ref": "#/definitions/LocalAnalysisToml"
+        },
+        "storage": {
+          "$ref": "#/definitions/LocalModelStorageToml"
+        }
+      },
+      "type": "object"
+    },
     "MarketplaceConfig": {
       "additionalProperties": false,
       "properties": {
@@ -6987,6 +7065,14 @@
     "instructions": {
       "description": "System instructions.",
       "type": "string"
+    },
+    "local_models": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/LocalModelsToml"
+        }
+      ],
+      "description": "Storage and lifecycle settings for locally managed models."
     },
     "log_dir": {
       "allOf": [

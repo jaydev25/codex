@@ -2617,6 +2617,7 @@ dependencies = [
  "codex-home",
  "codex-http-client",
  "codex-install-context",
+ "codex-local-models",
  "codex-login",
  "codex-mcp",
  "codex-memories-write",
@@ -2654,6 +2655,7 @@ dependencies = [
  "predicates",
  "pretty_assertions",
  "regex-lite",
+ "reqwest 0.12.28",
  "serde",
  "serde_json",
  "sqlx",
@@ -2874,6 +2876,7 @@ dependencies = [
  "codex-features",
  "codex-file-system",
  "codex-git-utils",
+ "codex-local-models",
  "codex-model-provider-info",
  "codex-network-proxy",
  "codex-protocol",
@@ -3013,6 +3016,7 @@ dependencies = [
  "codex-http-client",
  "codex-image-generation-extension",
  "codex-install-context",
+ "codex-local-models",
  "codex-login",
  "codex-mcp",
  "codex-memories-read",
@@ -3076,6 +3080,7 @@ dependencies = [
  "pretty_assertions",
  "rand 0.9.3",
  "regex-lite",
+ "reqwest 0.12.28",
  "rmcp",
  "serde",
  "serde_json",
@@ -3828,6 +3833,24 @@ dependencies = [
  "tokio",
  "tracing",
  "which 8.0.0",
+ "wiremock",
+]
+
+[[package]]
+name = "codex-local-models"
+version = "0.0.0"
+dependencies = [
+ "codex-utils-absolute-path",
+ "codex-utils-path",
+ "pretty_assertions",
+ "reqwest 0.12.28",
+ "schemars 0.8.22",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "tempfile",
+ "tokio",
+ "url",
  "wiremock",
 ]
 

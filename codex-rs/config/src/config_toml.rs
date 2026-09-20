@@ -32,6 +32,7 @@ use crate::types::Tui;
 use crate::types::UriBasedFileOpener;
 use crate::types::WindowsToml;
 use codex_features::FeaturesToml;
+use codex_local_models::LocalModelsToml;
 use codex_model_provider_info::AMAZON_BEDROCK_PROVIDER_ID;
 use codex_model_provider_info::AMAZON_BEDROCK_RUNTIME_PROVIDER_ID;
 use codex_model_provider_info::LEGACY_OLLAMA_CHAT_PROVIDER_ID;
@@ -162,6 +163,9 @@ pub struct ConfigToml {
 
     /// Provider to use from the model_providers map.
     pub model_provider: Option<String>,
+
+    /// Storage and lifecycle settings for locally managed models.
+    pub local_models: Option<LocalModelsToml>,
 
     /// Size of the context window for the model, in tokens.
     pub model_context_window: Option<i64>,

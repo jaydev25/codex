@@ -79,6 +79,7 @@ members = [
     "linux-sandbox",
     "lmstudio",
     "login",
+    "local-models",
     "codex-mcp",
     "memories/read",
     "memories/write",
@@ -235,6 +236,7 @@ codex-keyring-store = { path = "keyring-store" }
 codex-linux-sandbox = { path = "linux-sandbox" }
 codex-lmstudio = { path = "lmstudio" }
 codex-login = { path = "login" }
+codex-local-models = { path = "local-models" }
 codex-mermaid = { path = "mermaid" }
 codex-message-history = { path = "message-history" }
 codex-memories-extension = { path = "ext/memories" }
