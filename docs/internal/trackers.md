@@ -19,8 +19,6 @@
 
 | ID       | Status      | Area                        | Outcome                                                                                                                                           | Owner | Next action                                                            |
 | -------- | ----------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ---------------------------------------------------------------------- |
-| ARCH-004 | Validate | Cloud/local analysis router | Route large test, lint, scanner, and log outputs to local analysis while the selected cloud model owns planning, diagnosis, edits, and acceptance | Codex | Build the binary, select Qwen through `/act-model`, and exercise one large routed command |
-| ARCH-005 | Validate | Hybrid usage statistics | Show server-authoritative five-hour/weekly limits in `/status` alongside persistent local-offload jobs, byte reduction, and estimated cloud-input tokens avoided | Codex | Rebuild the installed release, run one routed workload, and verify the new `/status` rows |
 
 ## Backlog
 
@@ -38,6 +36,9 @@ TODO comments, or crate names. Add only work explicitly requested or agreed.
 | ARCH-001 | 2026-09-19 | Hybrid local execution | Extended the architecture with Hugging Face discovery, secure downloads, a model registry, backend compatibility, and runtime switching | Design review and Markdown formatting                   |
 | ARCH-002 | 2026-09-19 | Local-model foundation | Added typed storage configuration, deterministic path precedence, generated schema support, effective runtime paths, and focused tests  | 9 crate tests; config and CLI integration suites        |
 | ARCH-003 | 2026-09-20 | Hugging Face lifecycle | Added remote inspection and revision resolution plus resumable, quota-limited, verified download, registry listing, and safe removal    | 15 crate tests; CLI build; live public-model inspection |
+| ARCH-004 | 2026-09-21 | Cloud/local analysis router | Routed large deterministic command output to Qwen in LM Studio while retaining cloud ownership and the raw artifact | Installed release; real 220,000-byte log workload |
+| ARCH-005 | 2026-09-21 | Hybrid usage statistics | Added persistent local-offload accounting and combined it with server-authoritative five-hour and weekly usage | Real ledger event: 55,000 raw versus 178 forwarded estimated tokens |
+| ARCH-006 | 2026-09-21 | Live hybrid usage HUD | Added a responsive, right-aligned footer HUD for five-hour/weekly remaining and approximate locally saved tokens | Focused render test; TUI compile; installed release; real ledger refresh path |
 
 ## Risks and constraints
 
@@ -51,6 +52,7 @@ TODO comments, or crate names. Add only work explicitly requested or agreed.
 | RISK-006 | Resolved | The first `codex-core` test build exhausted Windows memory/page-file capacity while compiling in parallel (OS error 1455); no test assertion ran or failed        | A two-job Cargo cap compiled core and the complete CLI test graph without resource failure      |
 | RISK-007 | Open     | One existing Windows doctor snapshot fails to normalize its temporary config path after the repository move; it is unrelated to local-model behavior              | Diagnose separately; do not accept a machine-specific temporary path into the snapshot          |
 | RISK-008 | Resolved | LM Studio initially timed out while waking its desktop daemon                                                                                                      | Server is now reachable; existing Qwen models are visible and strict structured chat completion succeeded                |
+| RISK-009 | Open     | The normal Windows workspace sandbox fails to launch PowerShell with `CreateProcessWithLogonW failed: 2`; the configured legacy `[sandbox]` table is also ignored | Diagnose Windows sandbox prerequisites and migrate the user setting before relying on sandboxed non-interactive workloads |
 
 ## Decisions
 

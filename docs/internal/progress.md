@@ -6,12 +6,78 @@
 
 ## Current snapshot
 
-- Current focus: `ARCH-004` cloud/local analysis router
+- Current focus: no active feature; `ARCH-004` through `ARCH-006` completed
 - Current branch: `dev`
 - Baseline commit: `78245b47a`
 - Baseline working tree: clean before the project-memory files were added
 - Repository map: [features.md](features.md)
 - Work, risks, and decisions: [trackers.md](trackers.md)
+
+## 2026-09-21 — Always-visible hybrid usage HUD
+
+### Outcome
+
+- Added a right-aligned TUI footer HUD showing server-reported five-hour and
+  weekly allowance remaining plus persistent estimated cloud-input tokens
+  avoided by successful local analysis.
+- The HUD updates through the shared status refresh path, stays present whether
+  the configurable status line is enabled or disabled, and takes priority over
+  shortcut hints when terminal width is constrained.
+- On very narrow terminals the context-window text is dropped before the live
+  hybrid-usage HUD.
+
+### Validation
+
+- `cargo test -p codex-tui usage_hud_is_included_in_right_footer_variants
+  --lib` with two build jobs — passed.
+- `cargo check -p codex-tui --lib` with two build jobs — passed.
+- `git diff --check` — passed; only expected Windows line-ending notices.
+
+### Decisions, risks, and follow-up
+
+- Rate-limit percentages remain server-authoritative; the local token figure is
+  explicitly approximate and comes from the content-free local-analysis ledger.
+- `ARCH-006` is ready for release installation and a real Qwen 30B / LM Studio
+  routed workload with a 33,000-token model context.
+
+## 2026-09-21 — Installed hybrid release and live Qwen validation
+
+### Outcome
+
+- Installed the new release as `codex-local.exe`; its SHA-256 matched the
+  release artifact and the existing code-mode host remained installed.
+- Confirmed LM Studio served `qwen/qwen3-coder-30b` on the configured loopback
+  endpoint. LM Studio normalized the requested 33,000-token context to 32,768.
+- Ran a real cloud-controlled `codex-local exec` workload producing 220,000
+  bytes of synthetic logs. Qwen returned structured untrusted evidence, and the
+  cloud model received the compact evidence plus the retained raw-artifact path.
+- Closed `ARCH-004`, `ARCH-005`, and `ARCH-006`; the tracker has no approved
+  follow-on feature entries.
+
+### Validation
+
+- `cargo build --release -p codex-cli --bin codex` with two build jobs — passed
+  in 71 minutes.
+- Installed binary hash — `7FEC9A9ED4793E85A4482DED945D02F3A2C38DF57E5AEE39EEE428DD468A9D0C`.
+- `codex-local doctor --summary` — zero failures; authentication and provider
+  connectivity passed.
+- `codex-local local-model status --json` — selected Qwen model available.
+- Real routed log run — raw artifact 220,000 bytes; forwarded evidence 709
+  bytes; estimated 55,000 raw tokens versus 178 forwarded tokens.
+- Raw artifact digest matched its filename:
+  `E82F91DE309E10EF6B26BB3FBA5EFF787D36F2A2D1F2ACAFF81AD0045443B321`.
+
+### Decisions, risks, and follow-up
+
+- The automation host could not allocate an interactive Windows PTY, so the
+  installed TUI was not visually inspected here. The focused footer rendering
+  test and full TUI compile passed, and the live ledger source was populated.
+- The normal Windows workspace sandbox failed to start PowerShell with
+  `CreateProcessWithLogonW failed: 2`; the strictly output-only integration
+  command was rerun with sandbox bypass. This is an environment issue, not a
+  local-analysis routing failure.
+- The legacy `[sandbox] enabled = false` user setting is ignored by this Codex
+  version and should be removed or migrated separately.
 
 ## 2026-09-20 — Existing LM Studio model support and setup guide
 
@@ -54,6 +120,9 @@
 - `cargo build --release -p codex-cli --bin codex` with two build jobs — passed;
   installed as `codex-local.exe`, confirmed shared ChatGPT authentication, and
   enabled the LM Studio actor-picker configuration.
+- Installed the matching `codex-code-mode-host.exe` bundled with the native
+  Windows VS Code Codex extension beside `codex-local.exe`; hash verification,
+  host help startup, and `codex doctor --summary` passed with zero failures.
 - Live `POST /v1/chat/completions` against LM Studio — returned schema-conforming
   `{ "ok": true }` from `qwen2.5-coder-7b-instruct`.
 

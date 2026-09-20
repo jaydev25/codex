@@ -523,6 +523,11 @@ impl BottomPane {
         self.request_redraw();
     }
 
+    pub fn set_usage_hud(&mut self, line: Option<Line<'static>>) {
+        self.composer.set_usage_hud(line);
+        self.request_redraw();
+    }
+
     pub fn set_ide_context_active(&mut self, active: bool) {
         self.composer.set_ide_context_active(active);
         self.request_redraw();

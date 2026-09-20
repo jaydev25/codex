@@ -710,6 +710,7 @@ impl ChatComposer {
                 context_window_pending: false,
                 collaboration_mode_indicator: None,
                 goal_status_indicator: None,
+                usage_hud: None,
                 ide_context_active: false,
                 status_line_value: None,
                 status_line_hyperlink_url: None,
@@ -1038,6 +1039,10 @@ impl ChatComposer {
 
     pub fn set_goal_status_indicator(&mut self, indicator: Option<GoalStatusIndicator>) {
         self.footer.goal_status_indicator = indicator;
+    }
+
+    pub fn set_usage_hud(&mut self, line: Option<Line<'static>>) {
+        self.footer.usage_hud = line;
     }
 
     pub fn set_ide_context_active(&mut self, active: bool) {
@@ -1427,8 +1432,16 @@ impl ChatComposer {
     }
 
     fn mode_indicator_line(&self, show_cycle_hint: bool) -> Option<Line<'static>> {
-        let mut spans: Vec<Span<'static>> = Vec::new();
+        let mut spans: Vec<Span<'static>> = self
+            .footer
+            .usage_hud
+            .as_ref()
+            .map(|line| line.spans.clone())
+            .unwrap_or_default();
         if let Some(vim_mode) = self.vim_mode_indicator_span() {
+            if !spans.is_empty() {
+                spans.push(" | ".dim());
+            }
             spans.push(vim_mode);
         }
         if let Some(indicators) = status_line_right_indicator_line(
@@ -1450,7 +1463,7 @@ impl ChatComposer {
     }
 
     fn right_footer_line_with_context(&self) -> Line<'static> {
-        let mut line = if self.footer.context_window_pending {
+        let mut context = if self.footer.context_window_pending {
             Line::default()
         } else {
             context_window_line(
@@ -1458,8 +1471,15 @@ impl ChatComposer {
                 self.footer.context_window_used_tokens,
             )
         };
-        if let Some(vim_mode) = self.vim_mode_indicator_span() {
+        let mut line = self.footer.usage_hud.clone().unwrap_or_default();
+        if !line.spans.is_empty() && !context.spans.is_empty() {
             line.spans.push(" | ".dim());
+        }
+        line.spans.append(&mut context.spans);
+        if let Some(vim_mode) = self.vim_mode_indicator_span() {
+            if !line.spans.is_empty() {
+                line.spans.push(" | ".dim());
+            }
             line.spans.push(vim_mode);
         }
         line
@@ -4784,25 +4804,36 @@ impl ChatComposer {
                             show_queue_hint,
                         )
                     };
-                    let right_line =
-                        if let Some(label) = self.footer.side_conversation_context_label.as_ref() {
-                            Some(side_conversation_context_line(label))
-                        } else if let Some(line) = self.shell_mode_footer_line() {
-                            Some(line)
-                        } else if transition_active {
-                            None
-                        } else if status_line_active {
-                            let full = self.mode_indicator_line(show_cycle_hint);
-                            let compact = self.mode_indicator_line(/*show_cycle_hint*/ false);
-                            let full_width = full.as_ref().map(|l| l.width() as u16).unwrap_or(0);
-                            if can_show_left_with_context(hint_rect, left_width, full_width) {
-                                full
-                            } else {
-                                compact
-                            }
+                    let right_line = if let Some(label) =
+                        self.footer.side_conversation_context_label.as_ref()
+                    {
+                        Some(side_conversation_context_line(label))
+                    } else if let Some(line) = self.shell_mode_footer_line() {
+                        Some(line)
+                    } else if transition_active {
+                        None
+                    } else if status_line_active {
+                        let full = self.mode_indicator_line(show_cycle_hint);
+                        let compact = self.mode_indicator_line(/*show_cycle_hint*/ false);
+                        let full_width = full.as_ref().map(|l| l.width() as u16).unwrap_or(0);
+                        if can_show_left_with_context(hint_rect, left_width, full_width) {
+                            full
                         } else {
-                            Some(self.right_footer_line_with_context())
-                        };
+                            compact
+                        }
+                    } else {
+                        let full = self.right_footer_line_with_context();
+                        let hud_only = self.footer.usage_hud.clone();
+                        if max_left_width_for_right(hint_rect, full.width() as u16).is_none()
+                            && hud_only.as_ref().is_some_and(|line| {
+                                max_left_width_for_right(hint_rect, line.width() as u16).is_some()
+                            })
+                        {
+                            hud_only
+                        } else {
+                            Some(full)
+                        }
+                    };
                     let right_width = right_line.as_ref().map(|l| l.width() as u16).unwrap_or(0);
                     if status_line_active
                         && let Some(max_left) = max_left_width_for_right(hint_rect, right_width)
@@ -4818,7 +4849,7 @@ impl ChatComposer {
                         can_show_left_with_context(hint_rect, left_width, right_width);
                     let has_override =
                         self.footer.flash_visible() || active_footer_hint_override.is_some();
-                    let single_line_layout = if has_override || status_line_active {
+                    let mut single_line_layout = if has_override || status_line_active {
                         None
                     } else {
                         match footer_props.mode {
@@ -4843,6 +4874,15 @@ impl ChatComposer {
                             | FooterMode::ShortcutOverlay => None,
                         }
                     };
+                    if self.footer.usage_hud.is_some()
+                        && let Some((_, show_context)) = single_line_layout.as_ref()
+                        && !show_context
+                        && max_left_width_for_right(hint_rect, right_width).is_some()
+                    {
+                        // The live usage HUD is persistent telemetry. On narrow terminals,
+                        // sacrifice the transient shortcut hint before hiding the HUD.
+                        single_line_layout = Some((SummaryLeft::None, true));
+                    }
                     let show_right = if matches!(
                         footer_props.mode,
                         FooterMode::EscHint
@@ -13039,5 +13079,33 @@ mod tests {
             .draw(|f| composer.render(f.area(), f.buffer_mut()))
             .unwrap();
         insta::assert_snapshot!("shutdown_in_progress", terminal.backend());
+    }
+
+    #[test]
+    fn usage_hud_is_included_in_right_footer_variants() {
+        let (tx, _rx) = unbounded_channel::<AppEvent>();
+        let sender = AppEventSender::new(tx);
+        let mut composer = ChatComposer::new(
+            /*has_input_focus*/ true,
+            sender,
+            /*enhanced_keys_supported*/ false,
+            "Ask Codex to do anything".to_string(),
+            /*disable_paste_burst*/ false,
+        );
+        composer.set_usage_hud(Some(Line::from("5h 74% · W 81% · Local ~1.2M")));
+
+        assert!(
+            composer
+                .mode_indicator_line(/*show_cycle_hint*/ false)
+                .expect("usage HUD should produce a mode indicator line")
+                .to_string()
+                .starts_with("5h 74% · W 81% · Local ~1.2M")
+        );
+        assert!(
+            composer
+                .right_footer_line_with_context()
+                .to_string()
+                .starts_with("5h 74% · W 81% · Local ~1.2M")
+        );
     }
 }

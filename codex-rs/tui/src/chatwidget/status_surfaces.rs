@@ -16,10 +16,12 @@ use crate::status::format_tokens_compact;
 use codex_app_server_protocol::AskForApproval;
 use codex_config::ConfigLayerSource;
 use codex_config::os_host_name;
+use codex_local_models::load_local_analysis_stats;
 use codex_protocol::config_types::ApprovalsReviewer;
 use codex_protocol::config_types::ServiceTier;
 use codex_protocol::models::PermissionProfile;
 use codex_utils_sandbox_summary::summarize_permission_profile;
+use ratatui::text::Line;
 
 use super::status_state::TerminalTitleStatusKind;
 
@@ -302,8 +304,37 @@ impl ChatWidget {
         self.warn_invalid_status_line_items_once(&selections.invalid_status_line_items);
         self.warn_invalid_terminal_title_items_once(&selections.invalid_terminal_title_items);
         self.sync_status_surface_shared_state(&selections);
+        self.refresh_usage_hud();
         self.refresh_status_line_from_selections(&selections);
         self.refresh_terminal_title_from_selections(&selections);
+    }
+
+    fn refresh_usage_hud(&mut self) {
+        let snapshot = self.rate_limit_snapshots_by_limit_id.get("codex");
+        let five_hour = snapshot
+            .and_then(five_hour_status_window)
+            .map(|(window, _)| (100.0 - window.used_percent).clamp(0.0, 100.0));
+        let weekly = snapshot
+            .and_then(weekly_status_window)
+            .map(|(window, _)| (100.0 - window.used_percent).clamp(0.0, 100.0));
+        let saved = load_local_analysis_stats(&self.config.codex_home)
+            .unwrap_or_default()
+            .estimated_cloud_input_tokens_avoided;
+        let mut parts = Vec::new();
+        if let Some(percent) = five_hour {
+            parts.push(format!("5h {percent:.0}%"));
+        }
+        if let Some(percent) = weekly {
+            parts.push(format!("W {percent:.0}%"));
+        }
+        if saved > 0 {
+            parts.push(format!(
+                "Local ~{}",
+                format_tokens_compact(saved.min(i64::MAX as u64) as i64)
+            ));
+        }
+        self.bottom_pane
+            .set_usage_hud((!parts.is_empty()).then(|| Line::from(parts.join(" · ")).dim()));
     }
 
     /// Recomputes and emits the terminal title from config and runtime state.
