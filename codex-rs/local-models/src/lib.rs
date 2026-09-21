@@ -16,6 +16,17 @@ use std::path::PathBuf;
 use tokio::io::AsyncWriteExt;
 use url::Url;
 
+mod actor;
+pub use actor::ActorAssignment;
+pub use actor::ActorAttemptDecision;
+pub use actor::ActorAttemptTracker;
+pub use actor::ActorEscalation;
+pub use actor::ActorResult;
+pub use actor::ActorTaskKind;
+pub use actor::ActorToolCallMap;
+pub use actor::LocalActorError;
+pub use actor::run_local_actor;
+
 pub const LOCAL_MODELS_DIR_ENV: &str = "CODEX_LOCAL_MODELS_DIR";
 pub const LOCAL_ANALYSIS_STATS_FILE: &str = "local-analysis-stats.jsonl";
 

@@ -992,6 +992,27 @@ async fn shell_family_registers_only_unified_exec_tools() {
 }
 
 #[tokio::test]
+async fn configured_local_actor_is_visible_as_a_read_only_tool() {
+    let plan = probe(|turn| {
+        update_config(turn, |config| {
+            config.local_analysis.enabled = true;
+            config.local_analysis.backend_url = Some("http://127.0.0.1:1234/v1".to_string());
+            config.local_analysis.backend_model = Some("qwen/qwen3-coder-30b".to_string());
+        });
+    })
+    .await;
+
+    plan.assert_visible_contains(&["local_actor"]);
+    let ToolSpec::Function(spec) = plan.visible_spec("local_actor") else {
+        panic!("expected local_actor function tool");
+    };
+    assert!(
+        spec.description
+            .contains("never applies patches or runs commands")
+    );
+}
+
+#[tokio::test]
 async fn exec_command_guidance_follows_executor_platform_and_fallbacks() {
     let opposite_host_os = if cfg!(windows) { "linux" } else { "windows" };
     for (platform_os, multiple_environments, expect_windows_guidance) in [

@@ -38,6 +38,16 @@ remote-control commands, sandbox diagnostics, session resume/fork/archive/
 delete operations, cloud tasks, completion generation, feature inspection,
 and internal release/debug utilities.
 
+The hybrid local-model branch additionally exposes a `local_actor` tool when
+local analysis is enabled. It forwards a structured task to the configured
+loopback model and returns patch/test proposals for cloud review and normal
+permission-aware tool execution. Same-task retries are bounded to three local
+attempts, then the original task is returned to cloud. It does not yet
+automatically apply patches, run actor-authored tests, persist attempts across
+process resume, or enforce machine-readable planner output. See
+[architecture.md](architecture.md) and [trackers.md](trackers.md) for the
+remaining work.
+
 ## Runtime architecture
 
 The main request path is:

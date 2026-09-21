@@ -6,12 +6,86 @@
 
 ## Current snapshot
 
-- Current focus: no active feature; `ARCH-004` through `ARCH-006` completed
+- Current focus: `ARCH-007` structured planner/actor handoff; `ARCH-008` and
+  `ARCH-009` remain unwired
 - Current branch: `dev`
 - Baseline commit: `78245b47a`
 - Baseline working tree: clean before the project-memory files were added
 - Repository map: [features.md](features.md)
 - Work, risks, and decisions: [trackers.md](trackers.md)
+
+## 2026-09-21 — Planner/actor contract foundation
+
+### Outcome
+
+- Revised the architecture so the selected cloud model plans in structured
+  JSON and owns acceptance, while the selected local actor is responsible for
+  implementation, unit/E2E tests, and bounded debugging.
+- Added versioned actor assignment/result types and a loopback-only LM Studio
+  adapter. The validated assignment JSON is inserted directly into the local
+  actor's system message; the returned patches and commands remain unexecuted
+  proposals pending a permission-aware execution controller.
+- Added a bounded attempt tracker that escalates the original assignment and
+  three concise failure summaries after the third unsuccessful local attempt.
+- Tracked the remaining planner integration, actor tool execution, and
+  three-attempt escalation as `ARCH-007`–`ARCH-009`.
+
+### Validation
+
+- `just test -p codex-local-models` — 33 tests passed, including system-message
+  placement, rejection of unapproved tools/remote endpoints, and the third-
+  failure escalation decision.
+- `cargo fmt -p codex-local-models` — passed.
+- `just fmt` could not finish because `uv` was unavailable for unrelated Python
+  formatters; its incidental Bazel line-ending churn was reversed.
+- A live LM Studio actor request could not run: 30B at 32,768 context was
+  refused by loading guardrails, then 14B at 8,192 context failed CPU_REPACK
+  allocation. Only 0.59 GiB of physical memory was free afterward. No model
+  remained loaded; the guardrails were not overridden.
+
+### Decisions, risks, and follow-up
+
+- This is a foundation only. The installed `codex-local` still uses cloud-owned
+  implementation and only delegates large-output evidence analysis. Do not
+  claim that local patch writing, test authoring, or three-failure handoff is
+  active until `ARCH-007`–`ARCH-009` have integration tests and a new build.
+- Next connect the selected cloud model's strict structured-output response to
+  `ActorAssignment`, then route it to the actor adapter without granting the
+  actor direct shell or filesystem authority.
+
+## 2026-09-21 — Read-only planner-to-actor tool bridge
+
+### Outcome
+
+- Registered `local_actor` when local analysis is enabled. The selected cloud
+  model can submit a structured assignment; Codex validates it, sends it to the
+  configured loopback actor model as a system message, and returns a bounded
+  JSON proposal. The tool cannot apply patches or execute actor commands.
+- Rejected actor-proposed patch paths outside the assignment's allowed paths
+  and reduced the maximum actor response to 32 KiB.
+- Added core tool visibility and cloud-to-actor request/response integration
+  tests. The actor tool is intentionally not installed as a complete workflow.
+
+### Validation
+
+- `cargo check -p codex-core --lib` with two build jobs — passed.
+- `just test -p codex-core local_actor` with one build job — both focused tests
+  passed (tool visibility and end-to-end request/response boundary).
+- `just fix -p codex-core` with one build job — passed; Clippy simplified one
+  unnecessary clone in the new integration test.
+- `just fmt` ran the Rust formatter but could not complete its Python steps
+  because `uv` is unavailable in this shell. Its unrelated Bazel/Starlark
+  formatting changes were reverted.
+- A first two-job test compile detached without a captured result; the
+  one-job retry completed successfully in 18 minutes 55 seconds.
+
+### Decisions, risks, and follow-up
+
+- `ARCH-007` remains in progress because the planner is not yet constrained to
+  JSON-only orchestration across a turn. `ARCH-008` and `ARCH-009` remain ready:
+  no actor patch/test execution or three-attempt runtime handoff exists yet.
+- Do not replace the installed `codex-local.exe` until those behaviors are
+  integrated and validated together.
 
 ## 2026-09-21 — Always-visible hybrid usage HUD
 
@@ -621,3 +695,50 @@ When a concrete change is selected:
 
 - <tracker IDs and next action>
 ```
+
+## 2026-09-21 — Scoped cloud-planner guidance
+
+### Outcome
+
+- Added a bounded developer context fragment when local analysis, a loopback
+  backend URL, and a backend model are configured. It directs the selected cloud
+  model to send structured `local_actor` assignments rather than line-by-line
+  implementation scripts, and to keep final review in cloud.
+- The fragment preserves ordinary conversational answers and states that actor
+  patches and tests are still proposals, not executed work.
+- Added an integration assertion that the guidance reaches the cloud request.
+
+### Validation
+
+- `just test -p codex-core local_actor` — two focused tests passed for
+  guidance visibility and cloud-to-actor handoff. A new retry test is pending.
+
+### Decisions, risks, and follow-up
+
+- Prompt guidance is not machine-enforced JSON-only planner output. That remains
+  part of `ARCH-007`; `ARCH-008` and `ARCH-009` are not implemented at runtime.
+
+## 2026-09-21 — Session-bounded local actor retry handoff
+
+### Outcome
+
+- The `local_actor` tool now requires concise failure feedback and an unchanged
+  original assignment for retries. After three unsuccessful attempts it returns
+  the original task and all bounded failure summaries to the cloud without a
+  fourth actor request.
+- Actor proposals now use Codex `apply_patch` syntax and are parsed to reject
+  malformed or multi-file patches before cloud review. Patch and test execution
+  still occurs only through normal cloud tool calls and permission controls.
+- Added an integration test for three actor calls followed by cloud escalation.
+
+### Validation
+
+- `just test -p codex-core local_actor` — pending focused run.
+
+### Decisions, risks, and follow-up
+
+- Retry state is currently scoped to the live thread process. Resume-safe
+  persistence and actor transport-failure escalation remain to implement.
+- This is not yet an installable completed actor workflow under the user's
+  latest request. Build and install `codex-local` only after the remaining
+  actor features are validated.

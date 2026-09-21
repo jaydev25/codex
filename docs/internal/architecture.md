@@ -1,9 +1,9 @@
 # System Architecture: Local GPU Agent Loop with Codex Orchestrator
 
 This document defines an asynchronous, multi-model agent system that uses
-the user-selected cloud Codex model as the authoritative reasoning and
-implementation agent, while models running on a local RTX 3090 24 GB GPU
-perform high-volume support work such as test-output analysis, log scanning,
+the user-selected cloud Codex model as the authoritative planner and final
+reviewer, while models running on a local RTX 3090 24 GB GPU perform bounded
+implementation, test authoring, debugging, test-output analysis, log scanning,
 failure clustering, and issue extraction.
 
 The local execution model is not fixed. Users can discover, download, register,
@@ -19,36 +19,75 @@ local sources without changing the orchestration workflow.
 To minimize external API token consumption and control costs, the system
 separates planning from execution:
 
-- **Cloud Brain (user-selected Codex model, for example 5.6 Sol):** Owns
-  planning, diagnosis, implementation decisions, patch generation, safety
-  decisions, and final verification. It remains authoritative throughout a
-  run rather than handing problem ownership to a local model.
-- **Local Support Worker (RTX 3090 24 GB):** Handles token-heavy, bounded,
-  evidence-processing workloads: scanning test output and logs, grouping
-  repeated failures, extracting likely causes and source references, and
-  producing compact structured summaries. It cannot approve changes, mutate
-  the plan, or make the final diagnosis.
+- **Cloud Planner (user-selected Codex model, for example 5.6 Sol):** Owns
+  task decomposition, acceptance criteria, tool/actor-call mapping, safety
+  decisions, escalation after local failure, and final verification. For
+  delegated implementation work it emits only structured JSON orchestration
+  records, not line-by-line source code or script blocks. The selected cloud
+  model remains the authoritative decision maker.
+- **Local Actor (RTX 3090 24 GB):** Receives a validated structured assignment
+  in its system prompt. It writes implementation patches, unit and end-to-end
+  tests, executes permitted validation tools through the existing sandbox and
+  approval path, and attempts bounded debugging/repair. It also handles
+  token-heavy evidence processing. It cannot alter acceptance criteria,
+  grant itself permissions, or approve its own result.
 - **Model Manager:** Resolves a requested capability profile to an installed
   local model, downloads missing Hugging Face artifacts when authorized, and
   starts the compatible inference backend.
 
 ### 1.2 Multi-Model Token-Saving Loop
 
-1. **Plan and implement in cloud:** The selected cloud model creates the plan
-   and proposed code changes using the repository context and user intent.
-2. **Run deterministic tools:** Codex invokes approved tests, linters, builds,
-   and scanners in the normal sandbox or execution environment.
-3. **Resolve a local analyst:** For sufficiently large outputs, the Model
-   Manager selects an installed local model or asks the user to select/download
-   one. Small outputs bypass local inference entirely.
-4. **Analyze locally:** The local model receives bounded artifacts and returns
-   a schema-validated evidence digest containing failure groups, source spans,
-   test names, commands, exit status, hypotheses, and confidence.
-5. **Solve in cloud:** The cloud model evaluates the digest, requests raw
-   excerpts when evidence is incomplete or confidence is low, and owns the
-   diagnosis and next patch.
-6. **Repeat selectively:** Raw high-volume artifacts stay local; only bounded
-   evidence and requested excerpts consume cloud context.
+1. **Plan in cloud:** The selected cloud model emits a schema-validated JSON
+   assignment with task ID, objective, allowed paths/tools, tool-call map,
+   acceptance criteria, and budgets. It does not emit implementation scripts.
+2. **Delegate to the local actor:** Codex serializes that exact validated
+   assignment into the local actor's system message, alongside fixed role and
+   trust rules. Repository text and tool output remain lower-trust user/tool
+   content. The actor writes code, unit tests, and end-to-end tests.
+3. **Execute and debug locally:** Codex runs actor-requested tools through
+   normal approval/sandbox controls. The actor analyzes test, lint, scanner,
+   and log results and may repair the same task up to three failed iterations.
+4. **Escalate deterministically:** After the third unsuccessful actor repair,
+   or immediately on unavailable local inference, unsafe/unparseable output,
+   or an exhausted budget, Codex returns the original objective, assignment,
+   attempt history, bounded diagnostics, and artifact references to the
+   selected cloud planner. The actor may not silently restart its counter.
+5. **Verify in cloud:** The planner reviews the patch and test evidence,
+   requests raw excerpts if needed, and accepts, revises, or takes over the
+   original problem. Local success is not self-approval.
+
+### 1.3 Structured orchestration contract
+
+The planner's machine-readable response is a versioned JSON object. Use a
+strict response schema, not a prose-only prompt convention. Each assignment
+contains `task_id`, `kind`, `objective`, `allowed_paths`, `allowed_tools`,
+`tool_call_map`, `acceptance_criteria`, and `budgets`. `kind` distinguishes
+implementation, unit-test authoring, end-to-end-test authoring, and debugging.
+The map contains logical operation names and tool/argument templates; it does
+not carry executable script bodies. Reject unknown fields, invalid tools,
+out-of-scope paths, and oversized strings before any actor or tool call.
+
+The actor request has a fixed system preamble followed by the validated JSON
+assignment in the **same system message**. The actor returns a separate strict
+JSON result with proposed file patches, test commands, observed results,
+diagnostics, and `needs_escalation`. Codex validates the result and executes
+every requested operation itself; the local model never receives ambient
+filesystem or shell authority just because its endpoint is on loopback.
+
+An unsuccessful iteration means a failed acceptance test, invalid patch,
+invalid actor response, or unresolved diagnostic. Count attempts per original
+`task_id`, persist the count in the run record, and cap at three. The cloud
+handoff includes all three attempts but bounds raw log content by artifact
+references and requested excerpts. A new cloud assignment may start a new
+counter only when the planner explicitly changes the objective or scope.
+
+This actor workflow is a new phase. The source tree now has a read-only actor
+handoff tool and cloud-planner guidance when its loopback backend is configured.
+The guidance is not machine enforcement: the currently installed build only
+routes large deterministic command output to the local evidence analyst, and
+neither build automatically applies actor patches or tests. The source-tree
+tool now has a session-scoped three-attempt loop, but run-record persistence
+across process resume and machine-enforced planner output remain unfinished.
 
 ---
 
@@ -364,14 +403,15 @@ independent network services.
 - Promotes validated changes to the target workspace through a reviewed,
   recoverable operation.
 
-### 3.6 Cloud-Owned Evaluation Loop
+### 3.6 Actor Repair and Cloud Evaluation Loop
 
 - Classifies failures as generation/schema, patch conflict, compile, test,
   lint, timeout, sandbox/policy, infrastructure, or architectural failures.
 - Sends large diagnostic artifacts to a local analyst and keeps raw artifacts
   addressable by stable IDs.
-- Returns compact evidence to the cloud brain; the cloud brain may request raw
-  excerpts and determines every repair.
+- Returns compact evidence to the local actor for at most three repair
+  iterations. The cloud planner may request raw excerpts and takes over the
+  original problem after the third unsuccessful actor iteration.
 - Bypasses or rejects local analysis when output is small, evidence references
   are invalid, confidence is below policy, or the local backend is unhealthy.
 
@@ -383,44 +423,29 @@ independent network services.
 [Start]
    |
    v
-[Cloud brain plans and creates a candidate change]
+[Cloud planner emits validated JSON assignment and tool-call map]
    |
    v
-[Run deterministic validation commands]
-   | output large enough for local analysis?
-   +---- no ----> [Cloud brain reads result directly]
-   |
-   v yes
-[Resolve local analysis profile]
-   | installed and compatible?
-   +---- no ----> [User authorizes/selects HF download]
-   |                   |
-   |                   v
-   |              [Download, verify, register]
-   |                   |
-   +<------------------+
+[Validate scope and send assignment in local actor system prompt]
    |
    v
-[Load model and health-check backend]
+[Local actor proposes implementation and unit/E2E tests]
    |
    v
-[Local model scans logs/test output]
+[Coordinator checks patch/command scope and runs approved tests]
    |
    v
-[Return cited evidence digest to cloud brain]
+[Local actor diagnoses failure and repairs]
+   | failed attempt count < 3?       | pass
+   +---- yes ----> [Retry bounded local task] ----+
+   |                                              |
+   +<--------------------------------------------+
+   | 3 failures, unsafe output, or backend unavailable
+   v
+[Cloud planner receives original task and bounded attempt report]
    |
    v
-[Cloud brain diagnoses and decides next change]
-   | evidence sufficient?
-   +---- no ----> [Request raw excerpts or bypass local analyst] --+
-   |                                                            |
-   +<------------------------------------------------------------+
-   |
-   v
-[Cloud brain patches; sandbox validates]
-   | pass
-   v
-[Cloud brain accepts final result]
+[Cloud planner solves or replans; final verification]
    v
 [Next task or complete]
 ```
@@ -465,21 +490,14 @@ The schema is descriptive and stable. Token reduction should come from
 excluding irrelevant context and compact JSON serialization, not obscure field
 names.
 
-### 5.2 Local Micro-Task Input
+### 5.2 Local Actor System Message
 
 ```text
-[LOCAL EXECUTOR TASK]
-Run: {{run_id}}
-Task: {{task_id}}
-Repository revision: {{repository_revision}}
-Allowed paths: {{target_paths}}
-Objective: {{objective}}
-Interfaces: {{interfaces}}
-Constraints: {{constraints}}
-Acceptance commands: {{acceptance_commands}}
-
-Return only a response matching the candidate-patch schema. Do not access or
-modify paths outside the allowed set.
+You are the local implementation and test actor. Return only structured JSON.
+Do not expand the allowed paths, tools, or acceptance criteria. Propose patches
+and validation commands; the coordinator executes them under existing policy.
+Assignment JSON:
+{{validated_actor_assignment_json}}
 ```
 
 The response schema should contain patch operations, assumptions, and suggested

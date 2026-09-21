@@ -19,6 +19,9 @@
 
 | ID       | Status      | Area                        | Outcome                                                                                                                                           | Owner | Next action                                                            |
 | -------- | ----------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ---------------------------------------------------------------------- |
+| ARCH-007 | In progress | Structured planner/actor protocol | Constrain the selected cloud model to validated JSON orchestration steps and tool-call maps; pass each assignment into the local actor system prompt | Codex | Add machine-enforced planner output; scoped planner guidance and the read-only `local_actor` tool are now wired |
+| ARCH-008 | In progress | Local actor implementation and tests | Delegate implementation patches plus unit and E2E test authoring to the selected LM Studio model under existing tool permissions | Codex | Verify actor-authored apply_patch and test proposals through permission-aware cloud tool calls and acceptance evidence |
+| ARCH-009 | In progress | Local debugging and escalation | Let the local actor diagnose and repair a task for at most three unsuccessful iterations, then return the original problem to the selected cloud planner | Codex | Validate three-failure integration test; persist attempt state across process resume and handle actor transport failures |
 
 ## Backlog
 
@@ -53,6 +56,7 @@ TODO comments, or crate names. Add only work explicitly requested or agreed.
 | RISK-007 | Open     | One existing Windows doctor snapshot fails to normalize its temporary config path after the repository move; it is unrelated to local-model behavior              | Diagnose separately; do not accept a machine-specific temporary path into the snapshot          |
 | RISK-008 | Resolved | LM Studio initially timed out while waking its desktop daemon                                                                                                      | Server is now reachable; existing Qwen models are visible and strict structured chat completion succeeded                |
 | RISK-009 | Open     | The normal Windows workspace sandbox fails to launch PowerShell with `CreateProcessWithLogonW failed: 2`; the configured legacy `[sandbox]` table is also ignored | Diagnose Windows sandbox prerequisites and migrate the user setting before relying on sandboxed non-interactive workloads |
+| RISK-010 | Open     | Live actor-protocol validation is blocked by insufficient system memory: LM Studio rejected Qwen 30B at 32,768 context and Qwen 14B failed to allocate its CPU_REPACK buffer | Free RAM or reduce model/context safely; do not override LM Studio loading guardrails on a nearly exhausted system |
 
 ## Decisions
 
