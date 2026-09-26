@@ -41,12 +41,24 @@ and internal release/debug utilities.
 The hybrid local-model branch additionally exposes a `local_actor` tool when
 local analysis is enabled. It forwards a structured task to the configured
 loopback model and returns patch/test proposals for cloud review and normal
-permission-aware tool execution. Same-task retries are bounded to three local
-attempts, then the original task is returned to cloud. It does not yet
-automatically apply patches, run actor-authored tests, persist attempts across
-process resume, or enforce machine-readable planner output. See
-[architecture.md](architecture.md) and [trackers.md](trackers.md) for the
-remaining work.
+permission-aware tool execution. Core derives a reviewed execution plan only
+for planner-approved `apply_patch` and `exec_command` operations; the cloud
+invokes those normal tools and verifies their evidence. Same-task retries are
+bounded to three local attempts, then the original task is returned to cloud.
+Completed call/output pairs rebuild the bounded attempt state from rollout
+history after process resume. Cloud diagnoses a three-attempt failure and
+hands a materially revised assignment with a new task ID back to the actor;
+it does not default to writing the implementation itself. The actor never
+receives direct execution authority. See [architecture.md](architecture.md) and
+[trackers.md](trackers.md) for the design and validation record.
+
+The interactive footer and `/status` report approximate cloud-input tokens
+saved during the current TUI process. The value is derived by subtracting the
+persistent ledger at startup from its latest value, so lifetime totals from
+earlier sessions are not presented as current-session savings. This counter
+currently covers successful large-output local-analysis offloads; local-actor
+inference usage is tracked as a separate follow-up until it can be reported
+without treating unlike token streams as equivalent.
 
 ## Runtime architecture
 

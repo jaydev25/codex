@@ -1,0 +1,22 @@
+---
+source: tui/src/status/tests.rs
+expression: rendered
+---
+/status
+
+╭──────────────────────────────────────────────────────────────────────────────╮
+│  >_ OpenAI Codex (v0.0.0)                                                    │
+│                                                                              │
+│ Visit https://chatgpt.com/codex/settings/usage for up-to-date                │
+│ information on rate limits and credits                                       │
+│                                                                              │
+│  Model:                  gpt-6-astra (reasoning none, summaries auto)        │
+│  Directory: [[workspace]]                                                    │
+│  Permissions:            Custom (workspace with network access, Ask for appr │
+│  Agents.md:              <none>                                              │
+│                                                                              │
+│  Token usage:            0 total  (0 input + 0 output)                       │
+│  Limits:                 data not available yet                              │
+│  Session local actor:    2 jobs · 2.00 MiB raw → 0.12 MiB evidence           │
+│  Session tokens saved:   492K (approximate)                                  │
+╰──────────────────────────────────────────────────────────────────────────────╯

@@ -915,3 +915,29 @@ fn local_analysis_stats_aggregate_successful_offloads() {
         }
     );
 }
+
+#[test]
+fn local_analysis_stats_subtract_a_session_baseline() {
+    let baseline = LocalAnalysisStats {
+        successful_jobs: 3,
+        raw_bytes: 12_000,
+        forwarded_bytes: 2_000,
+        estimated_cloud_input_tokens_avoided: 2_500,
+    };
+    let current = LocalAnalysisStats {
+        successful_jobs: 5,
+        raw_bytes: 20_000,
+        forwarded_bytes: 3_000,
+        estimated_cloud_input_tokens_avoided: 4_250,
+    };
+
+    assert_eq!(
+        current.saturating_sub(&baseline),
+        LocalAnalysisStats {
+            successful_jobs: 2,
+            raw_bytes: 8_000,
+            forwarded_bytes: 1_000,
+            estimated_cloud_input_tokens_avoided: 1_750,
+        }
+    );
+}

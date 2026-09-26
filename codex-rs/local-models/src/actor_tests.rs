@@ -82,3 +82,39 @@ fn third_failed_actor_attempt_escalates_original_assignment() {
     assert_eq!(tracker.record_failure("E2E test failed"), expected);
     assert_eq!(tracker.record_failure("ignored fourth failure"), expected);
 }
+
+#[test]
+fn actor_operations_require_matching_planner_approved_tools() {
+    let mut result = ActorResult {
+        schema_version: 1,
+        task_id: "task-1".to_string(),
+        proposed_patches: vec![ActorPatch {
+            path: "src/parser.rs".to_string(),
+            apply_patch: "*** Begin Patch\n*** Add File: src/parser.rs\n+test\n*** End Patch"
+                .to_string(),
+        }],
+        test_commands: vec!["cargo test parser".to_string()],
+        diagnostics: Vec::new(),
+        needs_escalation: false,
+    };
+    let assignment = assignment();
+    assert!(
+        validate_actor_result(&assignment, &result)
+            .unwrap_err()
+            .to_string()
+            .contains("exec_command")
+    );
+
+    result.test_commands.clear();
+    assert!(validate_actor_result(&assignment, &result).is_ok());
+
+    let mut no_patch_access = assignment;
+    no_patch_access.allowed_tools = vec!["exec_command".to_string()];
+    no_patch_access.tool_call_map[0].tool = "exec_command".to_string();
+    assert!(
+        validate_actor_result(&no_patch_access, &result)
+            .unwrap_err()
+            .to_string()
+            .contains("apply_patch")
+    );
+}

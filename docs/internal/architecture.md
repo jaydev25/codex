@@ -47,14 +47,18 @@ separates planning from execution:
 3. **Execute and debug locally:** Codex runs actor-requested tools through
    normal approval/sandbox controls. The actor analyzes test, lint, scanner,
    and log results and may repair the same task up to three failed iterations.
-4. **Escalate deterministically:** After the third unsuccessful actor repair,
+4. **Replan deterministically:** After the third unsuccessful actor repair,
    or immediately on unavailable local inference, unsafe/unparseable output,
    or an exhausted budget, Codex returns the original objective, assignment,
    attempt history, bounded diagnostics, and artifact references to the
-   selected cloud planner. The actor may not silently restart its counter.
+   selected cloud planner. For three valid but unsuccessful attempts, the
+   planner diagnoses the failures and delegates a materially revised bounded
+   assignment with a new task ID back to the local actor. The actor may not
+   silently restart the unchanged assignment's counter.
 5. **Verify in cloud:** The planner reviews the patch and test evidence,
-   requests raw excerpts if needed, and accepts, revises, or takes over the
-   original problem. Local success is not self-approval.
+   requests raw excerpts if needed, and accepts or revises the plan. It remains
+   planner and reviewer rather than becoming the implementation actor merely
+   because the first assignment failed. Local success is not self-approval.
 
 ### 1.3 Structured orchestration contract
 
@@ -81,13 +85,15 @@ handoff includes all three attempts but bounds raw log content by artifact
 references and requested excerpts. A new cloud assignment may start a new
 counter only when the planner explicitly changes the objective or scope.
 
-This actor workflow is a new phase. The source tree now has a read-only actor
-handoff tool and cloud-planner guidance when its loopback backend is configured.
-The guidance is not machine enforcement: the currently installed build only
-routes large deterministic command output to the local evidence analyst, and
-neither build automatically applies actor patches or tests. The source-tree
-tool now has a session-scoped three-attempt loop, but run-record persistence
-across process resume and machine-enforced planner output remain unfinished.
+The source tree exposes the actor through a strict structured function schema
+when its loopback backend is configured. Actor results are validated against
+the immutable planner assignment and converted into a cloud-reviewed execution
+plan whose entries run through the normal permission-aware tools. Completed
+attempts are recovered from rollout call/output pairs after process resume,
+and the unchanged original assignment returns to cloud after three failures.
+The structured handoff directs cloud to replan and delegate a materially
+revised assignment with a new task ID back to the actor. The local model never
+applies patches or runs tests directly.
 
 ---
 
@@ -234,6 +240,12 @@ Commands that remain active after their initial yield are evaluated when a
 later `write_stdin` call observes final completion. Routing telemetry contains
 only outcome/reason labels and artifact byte counts; it excludes command text,
 raw output, artifact paths, findings, and model responses.
+Successful routing also appends bounded byte and estimated-token counters to a
+persistent ledger. The TUI captures that ledger as a startup baseline and
+subtracts it when rendering the footer and `/status`, making the displayed
+approximate savings session-scoped. The estimate currently represents cloud
+input avoided by large-output analysis; actor inference usage remains separate
+until an honest comparison model is defined.
 
 See [Configure and Run a Local Model](../local-model-setup.md) for both the
 existing LM Studio and Codex-managed GGUF workflows.

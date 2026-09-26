@@ -16,7 +16,6 @@ use crate::status::format_tokens_compact;
 use codex_app_server_protocol::AskForApproval;
 use codex_config::ConfigLayerSource;
 use codex_config::os_host_name;
-use codex_local_models::load_local_analysis_stats;
 use codex_protocol::config_types::ApprovalsReviewer;
 use codex_protocol::config_types::ServiceTier;
 use codex_protocol::models::PermissionProfile;
@@ -319,6 +318,7 @@ impl ChatWidget {
             .map(|(window, _)| (100.0 - window.used_percent).clamp(0.0, 100.0));
         let saved = load_local_analysis_stats(&self.config.codex_home)
             .unwrap_or_default()
+            .saturating_sub(&self.local_analysis_stats_baseline)
             .estimated_cloud_input_tokens_avoided;
         let mut parts = Vec::new();
         if let Some(percent) = five_hour {
@@ -329,7 +329,7 @@ impl ChatWidget {
         }
         if saved > 0 {
             parts.push(format!(
-                "Local ~{}",
+                "Session local ~{}",
                 format_tokens_compact(saved.min(i64::MAX as u64) as i64)
             ));
         }

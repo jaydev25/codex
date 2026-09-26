@@ -240,6 +240,9 @@ impl ChatWidget {
             .collect();
         let agents_summary =
             crate::status::compose_agents_summary(&self.config, &self.instruction_source_paths);
+        let local_analysis_stats = load_local_analysis_stats(&self.config.codex_home)
+            .unwrap_or_default()
+            .saturating_sub(&self.local_analysis_stats_baseline);
         let (cell, handle) = crate::status::new_status_output_with_rate_limits_handle(
             &self.config,
             self.requires_openai_auth,
@@ -259,6 +262,7 @@ impl ChatWidget {
             collaboration_mode,
             reasoning_effort_override,
             agents_summary,
+            local_analysis_stats,
             refreshing_rate_limits,
         );
         if let Some(request_id) = request_id {

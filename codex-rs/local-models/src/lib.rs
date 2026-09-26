@@ -53,6 +53,23 @@ pub struct LocalAnalysisStats {
     pub estimated_cloud_input_tokens_avoided: u64,
 }
 
+impl LocalAnalysisStats {
+    pub fn saturating_sub(&self, baseline: &Self) -> Self {
+        Self {
+            successful_jobs: self
+                .successful_jobs
+                .saturating_sub(baseline.successful_jobs),
+            raw_bytes: self.raw_bytes.saturating_sub(baseline.raw_bytes),
+            forwarded_bytes: self
+                .forwarded_bytes
+                .saturating_sub(baseline.forwarded_bytes),
+            estimated_cloud_input_tokens_avoided: self
+                .estimated_cloud_input_tokens_avoided
+                .saturating_sub(baseline.estimated_cloud_input_tokens_avoided),
+        }
+    }
+}
+
 pub fn append_local_analysis_stats_event(
     codex_home: &Path,
     event: &LocalAnalysisStatsEvent,

@@ -13,7 +13,6 @@ use chrono::DateTime;
 use chrono::Local;
 use codex_app_server_protocol::AskForApproval;
 use codex_local_models::LocalAnalysisStats;
-use codex_local_models::load_local_analysis_stats;
 use codex_model_provider_info::WireApi;
 use codex_protocol::ThreadId;
 use codex_protocol::account::PlanType;
@@ -220,6 +219,7 @@ pub(crate) fn new_status_output_with_rate_limits(
         collaboration_mode,
         reasoning_effort_override,
         "<none>".to_string(),
+        LocalAnalysisStats::default(),
         refreshing_rate_limits,
     )
     .0
@@ -244,6 +244,7 @@ pub(crate) fn new_status_output_with_rate_limits_handle(
     collaboration_mode: Option<&str>,
     reasoning_effort_override: Option<Option<ReasoningEffort>>,
     agents_summary: String,
+    local_analysis_stats: LocalAnalysisStats,
     refreshing_rate_limits: bool,
 ) -> (CompositeHistoryCell, StatusHistoryHandle) {
     let command = PlainHistoryCell::new(vec!["/status".magenta().into()]);
@@ -265,6 +266,7 @@ pub(crate) fn new_status_output_with_rate_limits_handle(
         collaboration_mode,
         reasoning_effort_override,
         agents_summary,
+        local_analysis_stats,
         refreshing_rate_limits,
     ));
     let handle = StatusHistoryHandle {
@@ -297,6 +299,7 @@ impl StatusHistoryCell {
         collaboration_mode: Option<&str>,
         reasoning_effort_override: Option<Option<ReasoningEffort>>,
         agents_summary: String,
+        local_analysis_stats: LocalAnalysisStats,
         refreshing_rate_limits: bool,
     ) -> Self {
         let approval_policy = AskForApproval::from(config.permissions.approval_policy.value());
@@ -385,9 +388,6 @@ impl StatusHistoryCell {
         }));
         let agents_summary = Arc::new(RwLock::new(agents_summary));
         let thread_usage = StatusThreadUsage::default();
-        let local_analysis_stats =
-            load_local_analysis_stats(&config.codex_home).unwrap_or_default();
-
         Self {
             model_name,
             model_details,
@@ -805,8 +805,8 @@ impl StatusHistoryCell {
         }
         self.collect_rate_limit_labels(&rate_limit_state, &mut seen, &mut labels);
         if self.local_analysis_stats.successful_jobs > 0 {
-            push_label(&mut labels, &mut seen, "Local actor");
-            push_label(&mut labels, &mut seen, "Est. tokens avoided");
+            push_label(&mut labels, &mut seen, "Session local actor");
+            push_label(&mut labels, &mut seen, "Session tokens saved");
         }
         self.thread_usage.push_labels(&mut labels, &mut seen);
 
@@ -902,14 +902,14 @@ impl StatusHistoryCell {
             let forwarded_mib =
                 self.local_analysis_stats.forwarded_bytes as f64 / (1024.0 * 1024.0);
             lines.push(formatter.line(
-                "Local actor",
+                "Session local actor",
                 vec![Span::from(format!(
                     "{} jobs · {raw_mib:.2} MiB raw → {forwarded_mib:.2} MiB evidence",
                     self.local_analysis_stats.successful_jobs
                 ))],
             ));
             lines.push(formatter.line(
-                "Est. tokens avoided",
+                "Session tokens saved",
                 vec![Span::from(format_tokens_compact(
                     self.local_analysis_stats
                         .estimated_cloud_input_tokens_avoided

@@ -37,6 +37,8 @@ impl ChatWidget {
         let mut config = config;
         config.model = model.clone();
         let prevent_idle_sleep = config.features.enabled(Feature::PreventIdleSleep);
+        let local_analysis_stats_baseline =
+            load_local_analysis_stats(&config.codex_home).unwrap_or_default();
         let placeholder = PLACEHOLDER.to_string();
         let side_placeholder = SIDE_PLACEHOLDER.to_string();
 
@@ -271,6 +273,7 @@ impl ChatWidget {
             status_line_workspace_headline_last_requested_at: None,
             status_line_workspace_messages_disabled: false,
             thread_usage: thread_usage::ThreadUsageState::default(),
+            local_analysis_stats_baseline,
             current_goal_status_indicator: None,
             current_goal_status: None,
             external_editor_state: ExternalEditorState::Closed,

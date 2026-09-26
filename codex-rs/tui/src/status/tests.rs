@@ -34,6 +34,7 @@ use codex_app_server_protocol::RateLimitWindow;
 use codex_app_server_protocol::SpendControlLimitSnapshot;
 use codex_config::LoaderOverrides;
 use codex_config::types::AuthCredentialsStoreMode;
+use codex_local_models::LocalAnalysisStats;
 use codex_model_provider_info::ModelProviderAwsAuthInfo;
 use codex_model_provider_info::ModelProviderInfo;
 use codex_models_manager::test_support::construct_model_info_offline_for_tests;
@@ -358,6 +359,49 @@ async fn status_snapshot_includes_reasoning_details() {
     }
     let sanitized = sanitize_directory(rendered_lines).join("\n");
     assert_snapshot!(sanitized);
+}
+
+#[tokio::test]
+async fn status_snapshot_shows_session_local_token_savings() {
+    let temp_home = TempDir::new().expect("temp home");
+    let mut config = test_config(&temp_home).await;
+    set_workspace_cwd(&mut config, test_path_buf("/workspace/tests").abs());
+    let usage = TokenUsage::default();
+    let now = Local
+        .with_ymd_and_hms(2024, 1, 2, 3, 4, 5)
+        .single()
+        .expect("timestamp");
+    let model_slug = get_model_offline_for_tests(config.model.as_deref());
+    let (composite, _) = new_status_output_with_rate_limits_handle(
+        &config,
+        /*requires_openai_auth*/ true,
+        /*model_provider_id*/ None,
+        /*remote_connection*/ None,
+        test_status_account_display().as_ref(),
+        /*token_info*/ None,
+        &usage,
+        &None,
+        /*thread_name*/ None,
+        /*forked_from*/ None,
+        /*rate_limits*/ &[],
+        None,
+        now,
+        &model_slug,
+        /*collaboration_mode*/ None,
+        /*reasoning_effort_override*/ None,
+        "<none>".to_string(),
+        LocalAnalysisStats {
+            successful_jobs: 2,
+            raw_bytes: 2_097_152,
+            forwarded_bytes: 131_072,
+            estimated_cloud_input_tokens_avoided: 491_520,
+        },
+        /*refreshing_rate_limits*/ false,
+    );
+    let rendered =
+        sanitize_directory(render_lines(&composite.display_lines(/*width*/ 80))).join("\n");
+
+    assert_snapshot!(rendered);
 }
 
 #[tokio::test]
@@ -780,6 +824,7 @@ async fn status_uses_server_provider_id_and_auth_requirement() {
         /*collaboration_mode*/ None,
         /*reasoning_effort_override*/ None,
         "<none>".to_string(),
+        LocalAnalysisStats::default(),
         /*refreshing_rate_limits*/ false,
     );
     let rendered =
@@ -811,6 +856,7 @@ async fn status_uses_server_provider_id_and_auth_requirement() {
         /*collaboration_mode*/ None,
         /*reasoning_effort_override*/ None,
         "<none>".to_string(),
+        LocalAnalysisStats::default(),
         /*refreshing_rate_limits*/ false,
     );
     let rendered =
@@ -1663,6 +1709,7 @@ async fn status_snapshot_uses_default_reasoning_when_config_empty() {
         /*collaboration_mode*/ None,
         /*reasoning_effort_override*/ Some(Some(ReasoningEffort::Medium)),
         "<none>".to_string(),
+        LocalAnalysisStats::default(),
         /*refreshing_rate_limits*/ false,
     );
     let mut rendered_lines = render_lines(&composite.display_lines(/*width*/ 80));
@@ -1774,6 +1821,7 @@ async fn transcript_overlay_remeasures_status_after_rate_limit_refresh() {
         /*collaboration_mode*/ None,
         /*reasoning_effort_override*/ None,
         "<none>".to_string(),
+        LocalAnalysisStats::default(),
         /*refreshing_rate_limits*/ true,
     );
     let mut overlay =

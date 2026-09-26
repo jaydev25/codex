@@ -190,6 +190,14 @@ pub async fn run_local_actor(
         })?;
     let result: ActorResult = serde_json::from_str(content)
         .map_err(|error| LocalActorError::InvalidResponse(error.to_string()))?;
+    validate_actor_result(assignment, &result)?;
+    Ok(result)
+}
+
+fn validate_actor_result(
+    assignment: &ActorAssignment,
+    result: &ActorResult,
+) -> Result<(), LocalActorError> {
     if result.schema_version != ACTOR_SCHEMA_VERSION || result.task_id != assignment.task_id {
         return Err(LocalActorError::InvalidResponse(
             "local actor result did not match the assignment".to_string(),
@@ -202,7 +210,33 @@ pub async fn run_local_actor(
             "local actor proposed a patch outside the allowed paths or an empty patch".to_string(),
         ));
     }
-    Ok(result)
+    if !result.proposed_patches.is_empty() && !assignment_allows_tool(assignment, "apply_patch") {
+        return Err(LocalActorError::InvalidResponse(
+            "local actor proposed patches without planner-approved apply_patch access".to_string(),
+        ));
+    }
+    if result
+        .test_commands
+        .iter()
+        .any(|command| command.trim().is_empty())
+        || (!result.test_commands.is_empty() && !assignment_allows_tool(assignment, "exec_command"))
+    {
+        return Err(LocalActorError::InvalidResponse(
+            "local actor proposed tests without planner-approved exec_command access".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn assignment_allows_tool(assignment: &ActorAssignment, tool: &str) -> bool {
+    assignment
+        .allowed_tools
+        .iter()
+        .any(|allowed| allowed == tool)
+        && assignment
+            .tool_call_map
+            .iter()
+            .any(|mapping| mapping.tool == tool)
 }
 
 fn actor_request_body(

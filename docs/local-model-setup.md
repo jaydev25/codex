@@ -16,13 +16,18 @@ Two model setups are supported:
 - An OpenAI-compatible model is loaded in LM Studio.
 - This repository's modified Codex binary has been built.
 
-Build the binary from the repository:
+Build and install the local development CLI from the repository:
 
 ```powershell
-Set-Location E:\AI\Coding\codex\codex-rs
-$env:CARGO_BUILD_JOBS = "2"
-cargo build -p codex-cli --bin codex
+Set-Location C:\Repos\AI\codex
+.\scripts\install\install-local-dev.ps1
 ```
+
+The installer always builds and installs both `codex-local.exe` and the
+required `codex-code-mode-host.exe`, verifies the copied hashes, and adds the
+install directory to the user PATH idempotently. It also uses the repository's
+checksum-verified Codex V8 artifact rather than the unavailable generic Windows
+archive. Use `-SkipBuild` only when both release binaries were already built.
 
 The resulting development binary is:
 

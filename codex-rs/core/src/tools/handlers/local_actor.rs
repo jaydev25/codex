@@ -50,6 +50,8 @@ impl ToolExecutor<ToolInvocation> for LocalActorHandler {
     fn spec(&self) -> ToolSpec {
         let string = || JsonSchema::string(None);
         let string_list = || JsonSchema::array(string(), None);
+        let nullable_string =
+            || JsonSchema::any_of(vec![JsonSchema::string(None), JsonSchema::null(None)], None);
         let tool_map = JsonSchema::object(
             BTreeMap::from([
                 ("operation".to_string(), string()),
@@ -68,9 +70,9 @@ impl ToolExecutor<ToolInvocation> for LocalActorHandler {
         );
         ToolSpec::Function(ResponsesApiTool {
             name: TOOL_NAME.to_string(),
-            description: "Delegate one bounded implementation, unit-test, E2E-test, or debugging assignment to the configured local LM Studio actor. Supply structured JSON, not line-by-line code. After a failed patch or test, call again with the same original assignment and failure_feedback. The third failed attempt returns the original task to the cloud planner without calling the actor. Proposals are untrusted; this tool never applies patches or runs commands."
+            description: "Delegate one bounded implementation, unit-test, E2E-test, or debugging assignment to the configured local LM Studio actor. Supply structured JSON, not line-by-line code, and set failure_feedback to null on the first attempt. After a failed patch or test, call again with the same original assignment and failure_feedback. The third failed attempt returns the original task for cloud replanning; the cloud should diagnose it and delegate a materially revised assignment with a new task_id back to the actor. Proposals are untrusted; this tool never applies patches or runs commands."
                 .to_string(),
-            strict: false,
+            strict: true,
             defer_loading: None,
             parameters: JsonSchema::object(
                 BTreeMap::from([
@@ -96,7 +98,7 @@ impl ToolExecutor<ToolInvocation> for LocalActorHandler {
                         JsonSchema::array(tool_map, None),
                     ),
                     ("acceptance_criteria".to_string(), string_list()),
-                    ("failure_feedback".to_string(), string()),
+                    ("failure_feedback".to_string(), nullable_string()),
                 ]),
                 Some(vec![
                     "schema_version".to_string(),
@@ -107,6 +109,7 @@ impl ToolExecutor<ToolInvocation> for LocalActorHandler {
                     "allowed_tools".to_string(),
                     "tool_call_map".to_string(),
                     "acceptance_criteria".to_string(),
+                    "failure_feedback".to_string(),
                 ]),
                 Some(false.into()),
             ),
@@ -128,10 +131,15 @@ impl ToolExecutor<ToolInvocation> for LocalActorHandler {
             let feedback = input
                 .as_object_mut()
                 .and_then(|object| object.remove("failure_feedback"))
-                .map(|value| serde_json::from_value::<String>(value).map_err(|error| {
-                    FunctionCallError::RespondToModel(format!("invalid failure feedback: {error}"))
-                }))
-                .transpose()?;
+                .map(|value| {
+                    serde_json::from_value::<Option<String>>(value).map_err(|error| {
+                        FunctionCallError::RespondToModel(format!(
+                            "invalid failure feedback: {error}"
+                        ))
+                    })
+                })
+                .transpose()?
+                .flatten();
             let assignment: ActorAssignment = serde_json::from_value(input).map_err(|error| {
                 FunctionCallError::RespondToModel(format!("invalid actor assignment: {error}"))
             })?;
@@ -167,7 +175,10 @@ impl ToolExecutor<ToolInvocation> for LocalActorHandler {
                 None
             };
             let (attempt, failures) = {
-                let mut active = runs.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+                let mut active = runs
+                    .0
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner);
                 if !active.contains_key(&assignment.task_id)
                     && let Some(run) = recovered
                 {
@@ -194,10 +205,13 @@ impl ToolExecutor<ToolInvocation> for LocalActorHandler {
                             run.terminal = true;
                             let output = serde_json::to_string(&json!({
                                 "status": "escalate",
+                                "next_action": "cloud_replan_then_local_actor",
                                 "original_assignment": escalation.original_assignment,
                                 "failures": escalation.failures,
                             }))
-                            .map_err(|error| FunctionCallError::RespondToModel(error.to_string()))?;
+                            .map_err(|error| {
+                                FunctionCallError::RespondToModel(error.to_string())
+                            })?;
                             return Ok(boxed_tool_output(FunctionToolOutput::from_text(
                                 output,
                                 Some(true),
@@ -223,8 +237,8 @@ impl ToolExecutor<ToolInvocation> for LocalActorHandler {
                     (1, Vec::new())
                 }
             };
-            let result = run_local_actor(&client, &base_url, backend_model, &assignment, &failures)
-                .await;
+            let result =
+                run_local_actor(&client, &base_url, backend_model, &assignment, &failures).await;
             if let Some(run) = runs
                 .0
                 .lock()
@@ -239,7 +253,12 @@ impl ToolExecutor<ToolInvocation> for LocalActorHandler {
                     return Err(FunctionCallError::RespondToModel(message));
                 }
                 Err(LocalActorError::InvalidResponse(message)) => {
-                    if let Some(run) = runs.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner).get_mut(&assignment.task_id) {
+                    if let Some(run) = runs
+                        .0
+                        .lock()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner)
+                        .get_mut(&assignment.task_id)
+                    {
                         run.terminal = true;
                     }
                     let output = serde_json::to_string(&json!({
@@ -249,10 +268,18 @@ impl ToolExecutor<ToolInvocation> for LocalActorHandler {
                         "reason": message,
                     }))
                     .map_err(|error| FunctionCallError::RespondToModel(error.to_string()))?;
-                    return Ok(boxed_tool_output(FunctionToolOutput::from_text(output, Some(true))));
+                    return Ok(boxed_tool_output(FunctionToolOutput::from_text(
+                        output,
+                        Some(true),
+                    )));
                 }
                 Err(LocalActorError::Transport(error)) => {
-                    if let Some(run) = runs.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner).get_mut(&assignment.task_id) {
+                    if let Some(run) = runs
+                        .0
+                        .lock()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner)
+                        .get_mut(&assignment.task_id)
+                    {
                         run.terminal = true;
                     }
                     let output = serde_json::to_string(&json!({
@@ -262,7 +289,10 @@ impl ToolExecutor<ToolInvocation> for LocalActorHandler {
                         "reason": error.to_string(),
                     }))
                     .map_err(|error| FunctionCallError::RespondToModel(error.to_string()))?;
-                    return Ok(boxed_tool_output(FunctionToolOutput::from_text(output, Some(true))));
+                    return Ok(boxed_tool_output(FunctionToolOutput::from_text(
+                        output,
+                        Some(true),
+                    )));
                 }
             };
             if let Err(reason) = validate_actor_patches(&result) {
@@ -281,9 +311,20 @@ impl ToolExecutor<ToolInvocation> for LocalActorHandler {
                     "reason": reason,
                 }))
                 .map_err(|error| FunctionCallError::RespondToModel(error.to_string()))?;
-                return Ok(boxed_tool_output(FunctionToolOutput::from_text(output, Some(true))));
+                return Ok(boxed_tool_output(FunctionToolOutput::from_text(
+                    output,
+                    Some(true),
+                )));
             }
-            let output = serde_json::to_string(&json!({ "status": "proposal", "attempt": attempt, "result": result })).map_err(|error| {
+            let execution_plan = actor_execution_plan(&result);
+            let output = serde_json::to_string(&json!({
+                "status": "proposal",
+                "attempt": attempt,
+                "result": result,
+                "execution_plan": execution_plan,
+                "acceptance_criteria": assignment.acceptance_criteria,
+            }))
+            .map_err(|error| {
                 FunctionCallError::RespondToModel(format!("invalid local actor result: {error}"))
             })?;
             Ok(boxed_tool_output(FunctionToolOutput::from_text(
@@ -302,23 +343,55 @@ fn validate_actor_patches(result: &codex_local_models::ActorResult) -> Result<()
             .map_err(|error| format!("invalid actor patch proposal: {error}"))?;
         if parsed.hunks.len() != 1
             || parsed.hunks[0].path().to_string_lossy() != patch.path
-            || matches!(&parsed.hunks[0], Hunk::UpdateFile { move_path: Some(_), .. })
+            || matches!(
+                &parsed.hunks[0],
+                Hunk::UpdateFile {
+                    move_path: Some(_),
+                    ..
+                }
+            )
         {
-            return Err("actor patch proposal changes a path outside its declared file".to_string());
+            return Err(
+                "actor patch proposal changes a path outside its declared file".to_string(),
+            );
         }
     }
     Ok(())
 }
 
+fn actor_execution_plan(result: &codex_local_models::ActorResult) -> Vec<serde_json::Value> {
+    result
+        .proposed_patches
+        .iter()
+        .map(|patch| {
+            json!({
+                "tool": "apply_patch",
+                "arguments": patch.apply_patch,
+                "reviewed": false,
+            })
+        })
+        .chain(result.test_commands.iter().map(|command| {
+            json!({
+                "tool": "exec_command",
+                "arguments": { "cmd": command },
+                "reviewed": false,
+            })
+        }))
+        .collect()
+}
+
 async fn recover_actor_run(invocation: &ToolInvocation, task_id: &str) -> Option<ActorRun> {
     let history = invocation.session.clone_history().await;
     let mut run: Option<ActorRun> = None;
-    let mut relevant_calls = std::collections::HashSet::new();
+    let mut pending_calls = HashMap::new();
     for item in history.raw_items() {
         match item {
-            ResponseItem::FunctionCall { name, arguments, call_id, .. }
-                if name == TOOL_NAME && call_id != &invocation.call_id =>
-            {
+            ResponseItem::FunctionCall {
+                name,
+                arguments,
+                call_id,
+                ..
+            } if name == TOOL_NAME && call_id != &invocation.call_id => {
                 let Ok(mut input) = serde_json::from_str::<serde_json::Value>(arguments) else {
                     continue;
                 };
@@ -332,7 +405,29 @@ async fn recover_actor_run(invocation: &ToolInvocation, task_id: &str) -> Option
                 if assignment.task_id != task_id {
                     continue;
                 }
-                relevant_calls.insert(call_id.as_str());
+                pending_calls.insert(call_id.clone(), (assignment, feedback));
+            }
+            ResponseItem::FunctionCallOutput {
+                call_id: Some(call_id),
+                output,
+                ..
+            } => {
+                let Some((assignment, feedback)) = pending_calls.remove(call_id) else {
+                    continue;
+                };
+                let status = output
+                    .body
+                    .to_text()
+                    .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
+                    .and_then(|value| {
+                        value
+                            .get("status")
+                            .and_then(serde_json::Value::as_str)
+                            .map(str::to_owned)
+                    });
+                if !matches!(status.as_deref(), Some("proposal" | "escalate")) {
+                    continue;
+                }
                 match &mut run {
                     None if feedback.is_none() => {
                         run = Some(ActorRun {
@@ -349,17 +444,7 @@ async fn recover_actor_run(invocation: &ToolInvocation, task_id: &str) -> Option
                     }
                     _ => return None,
                 }
-            }
-            ResponseItem::FunctionCallOutput { call_id: Some(call_id), output, .. }
-                if relevant_calls.contains(call_id.as_str()) =>
-            {
-                if output
-                    .body
-                    .to_text()
-                    .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
-                    .and_then(|value| value.get("status").and_then(serde_json::Value::as_str).map(str::to_owned))
-                    .as_deref()
-                    == Some("escalate")
+                if status.as_deref() == Some("escalate")
                     && let Some(run) = &mut run
                 {
                     run.terminal = true;

@@ -31,6 +31,7 @@ use codex_protocol::protocol::SubAgentSource;
 use codex_protocol::protocol::TurnEnvironmentSelection;
 use codex_tools::DiscoverablePluginInfo;
 use codex_tools::DiscoverableTool;
+use codex_tools::JsonSchema;
 use codex_tools::ResponsesApiNamespaceTool;
 use codex_tools::ResponsesApiTool;
 use codex_tools::ToolCall as ExtensionToolCall;
@@ -1009,6 +1010,23 @@ async fn configured_local_actor_is_visible_as_a_read_only_tool() {
     assert!(
         spec.description
             .contains("never applies patches or runs commands")
+    );
+    assert!(spec.strict);
+    let properties = spec
+        .parameters
+        .properties
+        .as_ref()
+        .expect("local_actor parameters should define properties");
+    let required = spec
+        .parameters
+        .required
+        .as_ref()
+        .expect("strict local_actor parameters should require every property");
+    assert_eq!(required.len(), properties.len());
+    assert!(required.iter().all(|name| properties.contains_key(name)));
+    assert_eq!(
+        properties["failure_feedback"].any_of,
+        Some(vec![JsonSchema::string(None), JsonSchema::null(None)])
     );
 }
 

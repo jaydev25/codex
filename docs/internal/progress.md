@@ -6,13 +6,172 @@
 
 ## Current snapshot
 
-- Current focus: `ARCH-007` structured planner/actor handoff; `ARCH-008` and
-  `ARCH-009` remain unwired
-- Current branch: `dev`
+- Current focus: `ARCH-010` session savings is complete; `ARCH-011` honest local-actor usage accounting is ready
+- Current branch: `local`
 - Baseline commit: `78245b47a`
 - Baseline working tree: clean before the project-memory files were added
 - Repository map: [features.md](features.md)
 - Work, risks, and decisions: [trackers.md](trackers.md)
+
+## 2026-09-26 — Small-task routing, 65K context, and session savings
+
+### Outcome
+
+- Added `scripts/install/install-local-dev.ps1` so fresh local-development
+  installs always build and install `codex-local.exe` together with
+  `codex-code-mode-host.exe`. It resolves a real Python interpreter, downloads
+  the checksum-verified Codex V8 artifact, verifies installed binary hashes,
+  tolerates an identical running CLI, and updates user PATH idempotently.
+- Changed three-attempt escalation semantics so cloud takes over diagnosis and
+  replanning, then hands a materially revised bounded assignment with a new
+  task ID back to the local actor. A failed first assignment no longer implies
+  cloud-authored implementation.
+- Made planner guidance send bounded low-risk implementation work to the local
+  actor first, including lint fixes, isolated repairs, and planner-scoped unit
+  or E2E tests. The actor authors patches and exact test commands; the cloud
+  reviews and executes them through normal tools, then takes over after three
+  unsuccessful attempts.
+- Loaded Qwen 30B with a 65,536-token context and received strict structured
+  output. A 131,072-token dry estimate required 24.47 GiB, so it was not loaded
+  on the nominal 24 GiB RTX 3090.
+- Changed the footer and `/status` from lifetime local-analysis totals to a
+  startup-baselined current-session view labeled `Session tokens saved`.
+- Kept the number honest: it currently covers approximate cloud input avoided
+  by successful large-output analysis. Actor inference accounting is the next
+  scoped task rather than being silently mixed into that estimate.
+
+### Validation
+
+- `just test -p codex-local-models` — 35 tests passed.
+- Focused core actor routing, execution, and resume tests — passed.
+- Focused TUI status snapshot — passed; the new snapshot was reviewed and
+  accepted.
+- `just fix -p codex-local-models`, `just fix -p codex-core`, and
+  `just fix -p codex-tui` — passed.
+- Live LM Studio strict completion — passed at 65,536 context.
+- Final `cargo build --release -p codex-cli --bin codex` after the replanning
+  change — passed with default parallelism in 26m 22s; `codex-local.exe`
+  matches the release binary's SHA-256 hash.
+- `codex-local local-model status --json` — passed against LM Studio using the
+  API-exposed model ID `qwen3-coder-30b-a3b-instruct`.
+
+### Decisions, risks, and follow-up
+
+- Extra system RAM removes the obsolete Cargo job cap, but it does not remove
+  GPU KV-cache limits or the bounded-context safety rules.
+- Implement `ARCH-011` only with backend usage data and a defensible mapping to
+  avoided cloud work; do not label raw local tokens themselves as savings.
+- Qwen was unloaded after live validation; `lms ps` confirmed no resident
+  models so its GPU and host memory are released when it is not in use.
+
+## 2026-09-26 — Resume-safe actor escalation and 48 GB validation
+
+### Outcome
+
+- Rebuilt actor retry state from completed local-actor call/output pairs in the
+  persisted rollout. Incomplete calls no longer consume an attempt after a
+  process interruption.
+- Extended the bounded retry integration test across shutdown and resume. The
+  resumed task receives its third actor attempt and then returns the unchanged
+  original assignment plus all three failures to the cloud without a fourth
+  local request.
+- Removed the obsolete two-job build recommendation after the machine upgrade
+  from 16 GB to 48 GB RAM. Cargo's default parallelism completed the focused
+  core build and test.
+- Loaded Qwen 30B in LM Studio at 32,768 context, started the loopback API, and
+  received a strict schema-conforming actor result. The actor remains loaded
+  under identifier `qwen/qwen3-coder-30b`.
+- Closed `ARCH-009` and resolved the system-memory validation risk.
+
+### Validation
+
+- `just test -p codex-core third_failed_actor_attempt_survives_resume_and_returns_task_to_cloud`
+  — passed uncapped after compiling with Cargo's default parallelism.
+- `just test -p codex-core local_actor` — four focused tests passed, covering
+  schema exposure, permission-aware proposal execution, resume-safe bounded
+  retries, and immediate transport escalation.
+- `just fix -p codex-core` — passed with Cargo's default parallelism.
+- Live LM Studio `POST /v1/chat/completions` — Qwen 30B returned a valid strict
+  actor result at a reported 32,768-token context.
+- `git diff --check` — passed with expected Windows line-ending notices only.
+- `just fmt` completed its Rust stage; unrelated Python and Bazel/Starlark
+  stages could not run because `uv` and `dotslash` are unavailable on PATH.
+
+### Decisions, risks, and follow-up
+
+- System RAM no longer justifies a Cargo job cap. Context, response-size, disk,
+  and GPU-memory bounds remain safety and correctness limits rather than
+  obsolete 16 GB workarounds.
+- No tracked feature remains pending. A complete `codex-core` workspace test
+  run still requires explicit approval under the repository instructions.
+
+## 2026-09-26 — Permission-aware actor proposal execution
+
+### Outcome
+
+- Required actor patch proposals to have planner-approved `apply_patch` access
+  and actor test commands to have planner-approved `exec_command` access in
+  both `allowed_tools` and the assignment's tool-call map.
+- Added a core-derived `execution_plan` containing exact normal-tool arguments,
+  review state, and the original acceptance criteria. The local actor still has
+  no direct filesystem, shell, or approval authority.
+- Updated planner guidance to review the execution plan, invoke its entries in
+  order through normal tools, and verify returned evidence against the
+  acceptance criteria.
+- Extended the integration test through actual `apply_patch` and
+  `exec_command` calls. It verifies the isolated file change and command output.
+- Closed `ARCH-008`; durable retry persistence remains under `ARCH-009`.
+
+### Validation
+
+- `just test -p codex-local-models` — 34 tests passed.
+- `just test -p codex-core local_actor` — four focused tests passed before the
+  execution-path extension.
+- `just test -p codex-core reviewed_actor_proposals_execute_through_normal_tools`
+  — passed after exercising the normal patch and command handlers.
+- `just fmt` completed its Rust stage; unrelated Python and Bazel/Starlark
+  stages could not run because `uv` and `dotslash` are not installed.
+
+### Decisions, risks, and follow-up
+
+- Core derives executable normal-tool arguments only after validating the
+  actor result against the immutable planner assignment. Execution remains a
+  separate cloud-reviewed step, so existing hooks, approvals, sandboxing, and
+  event evidence remain authoritative.
+- Next complete `ARCH-009` by persisting retry state across process resume and
+  retaining the three-failure and transport escalation guarantees.
+
+## 2026-09-26 — Strict planner-to-actor handoff
+
+### Outcome
+
+- Changed `local_actor` from a permissive function definition to a strict
+  structured-output schema in which every property is required and unknown
+  properties are forbidden.
+- Made `failure_feedback` explicitly nullable so the planner sends `null` for
+  the first attempt and a bounded string for retries. The null control field is
+  removed before the immutable `ActorAssignment` is validated and forwarded.
+- Extended the cloud-to-actor integration test to verify the exact strict tool
+  schema and the first-attempt null handling at the outbound Responses API
+  boundary.
+- Closed `ARCH-007`; actor proposals remain read-only until `ARCH-008` connects
+  reviewed patches and tests to the normal permission-aware tools.
+
+### Validation
+
+- `just test -p codex-core configured_local_actor_is_visible_as_a_read_only_tool`
+  — passed.
+- `just test -p codex-core cloud_assignment_reaches_actor_system_prompt_and_returns_proposals`
+  — passed.
+- `just fmt` completed its Rust stage; unrelated Python and Bazel/Starlark
+  stages could not run because `uv` and `dotslash` are not installed.
+
+### Decisions, risks, and follow-up
+
+- Strictness is enforced by the model-facing function schema and again by the
+  existing deny-unknown-fields Rust decoder; actor output remains untrusted.
+- Next implement `ARCH-008` without giving the loopback actor direct filesystem
+  or shell authority.
 
 ## 2026-09-21 — Planner/actor contract foundation
 
