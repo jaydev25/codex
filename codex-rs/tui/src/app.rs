@@ -208,6 +208,7 @@ mod agents_overview_threads;
 mod agents_overview_usage;
 mod agents_overview_view;
 pub(crate) use agents_overview::AGENTS_OVERVIEW_VIEW_ID;
+mod actor_model_loading;
 mod app_server_event_targets;
 mod app_server_events;
 pub(crate) mod app_server_requests;

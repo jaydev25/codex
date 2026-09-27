@@ -10,13 +10,14 @@ expression: rendered
 │ Visit https://chatgpt.com/codex/settings/usage for up-to-date                │
 │ information on rate limits and credits                                       │
 │                                                                              │
-│  Model:                  gpt-6-astra (reasoning none, summaries auto)        │
+│  Model:                    gpt-6-astra (reasoning none, summaries auto)      │
 │  Directory: [[workspace]]                                                    │
-│  Permissions:            Custom (workspace with network access, Ask for appr │
-│  Agents.md:              <none>                                              │
+│  Permissions:              Custom (workspace with network access, Ask for ap │
+│  Agents.md:                <none>                                            │
 │                                                                              │
-│  Token usage:            0 total  (0 input + 0 output)                       │
-│  Limits:                 data not available yet                              │
-│  Session local actor:    2 jobs · 2.00 MiB raw → 0.12 MiB evidence           │
-│  Session tokens saved:   492K (approximate)                                  │
+│  Token usage:              0 total  (0 input + 0 output)                     │
+│  Limits:                   data not available yet                            │
+│  Session local analysis:   2 jobs · 2.00 MiB raw → 0.12 MiB evidence         │
+│  Session tokens saved:     492K (approximate)                                │
+│  Session actor usage:      2 calls · 2.7K in · 300 out (local)               │
 ╰──────────────────────────────────────────────────────────────────────────────╯

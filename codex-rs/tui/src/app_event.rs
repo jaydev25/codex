@@ -1125,6 +1125,32 @@ pub(crate) enum AppEvent {
     /// Persist and activate the selected local evidence-analysis model.
     UpdateActorModel(String),
 
+    /// Metadata needed to prompt for and load a selected local actor model.
+    ActorModelMetadataLoaded {
+        identifier: String,
+        result: Result<(String, Option<u32>), String>,
+    },
+
+    /// Validate the requested context length and begin loading the actor model.
+    ActorModelContextSubmitted {
+        identifier: String,
+        model_key: String,
+        max_context_length: Option<u32>,
+        input: String,
+    },
+
+    /// Completion of the blocking LM Studio load operation.
+    ActorModelLoadFinished {
+        identifier: String,
+        model_key: String,
+        max_context_length: Option<u32>,
+        context_length: u32,
+        result: Result<(), String>,
+    },
+
+    /// Reopen the configured LM Studio actor-model picker.
+    OpenActorModelPicker,
+
     /// Apply a final Astra picker action and offer the flourish only if it changed the model on
     /// its original task. Automatic model updates do not use this event.
     AstraSelectedFromModelPicker {

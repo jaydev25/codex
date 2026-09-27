@@ -1,0 +1,13 @@
+---
+source: tui/src/chatwidget/tests/actor_model_tests.rs
+expression: "format!(\"{}\\n--- retry prompt ---\\n{}\", history_snapshot(&mut rx),\nrender_bottom_popup(&chat, 80))"
+---
+■ Context length must be a positive integer.
+
+--- retry prompt ---
+▌ Context length for qwen3-coder-30b-a3b-instruct
+▌ LM Studio model: qwen3-coder-30b-a3b-instruct. Maximum: 262144 tokens.
+▌
+▌ Enter a positive token count and press Enter
+
+Press enter to confirm or esc to go back

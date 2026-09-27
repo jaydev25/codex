@@ -3,6 +3,8 @@
 use anyhow::Result;
 use codex_core::TurnInputRequest;
 use codex_core::config::Constrained;
+use codex_local_models::LocalAnalysisStats;
+use codex_local_models::load_local_analysis_stats;
 use codex_protocol::models::PermissionProfile;
 use codex_protocol::protocol::AskForApproval;
 use codex_protocol::protocol::EventMsg;
@@ -34,7 +36,7 @@ async fn reviewed_actor_proposals_execute_through_normal_tools() -> Result<()> {
         "cat actor_test_marker.txt"
     };
     let assignment = json!({
-        "schema_version": 1,
+        "schema_version": 2,
         "task_id": "task-1",
         "kind": "unit_test",
         "objective": "Propose and validate an actor test marker",
@@ -53,14 +55,16 @@ async fn reviewed_actor_proposals_execute_through_normal_tools() -> Result<()> {
             }
         ],
         "acceptance_criteria": ["actor test marker is readable"],
+        "context_files": [],
         "failure_feedback": null
     });
     let actor_result = json!({
-        "schema_version": 1,
+        "schema_version": 2,
         "task_id": "task-1",
-        "proposed_patches": [{
+        "proposed_edits": [{
+            "kind": "add",
             "path": "actor_test_marker.txt",
-            "apply_patch": patch
+            "content": "actor-test-passed\n"
         }],
         "test_commands": [test_command],
         "diagnostics": ["Patch and test require cloud review before execution"],
@@ -69,7 +73,12 @@ async fn reviewed_actor_proposals_execute_through_normal_tools() -> Result<()> {
     Mock::given(method("POST"))
         .and(path("/v1/chat/completions"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({
-            "choices": [{"message": {"content": actor_result.to_string()}}]
+            "choices": [{"message": {"content": actor_result.to_string()}}],
+            "usage": {
+                "prompt_tokens": 900,
+                "completion_tokens": 100,
+                "total_tokens": 1_000
+            }
         })))
         .expect(1)
         .mount(&actor)
@@ -143,14 +152,16 @@ async fn reviewed_actor_proposals_execute_through_normal_tools() -> Result<()> {
         .as_object_mut()
         .expect("assignment should be an object")
         .remove("failure_feedback");
+    expected_assignment
+        .as_object_mut()
+        .expect("assignment should be an object")
+        .remove("context_files");
     assert_eq!(sent_assignment, expected_assignment);
     assert_eq!(actor_body["messages"][0]["role"], "system");
-    assert!(
-        actor_body["messages"][0]["content"]
-            .as_str()
-            .unwrap()
-            .contains("Prior failed attempts JSON:\n[]")
-    );
+    let actor_user_message: serde_json::Value =
+        serde_json::from_str(actor_body["messages"][1]["content"].as_str().unwrap())?;
+    assert_eq!(actor_user_message["prior_failed_attempts"], json!([]));
+    assert_eq!(actor_user_message["context_files"], json!([]));
     let cloud_requests = cloud_responses.requests();
     assert_eq!(cloud_requests.len(), 4);
     let request_body = cloud_requests[0].body_json();
@@ -177,9 +188,9 @@ async fn reviewed_actor_proposals_execute_through_normal_tools() -> Result<()> {
         text.contains("<local_actor_planner>")
             && text.contains("especially lint fixes, isolated repairs")
             && text.contains("Send only structured JSON arguments through `local_actor`")
-            && text.contains("author implementation and unit/E2E test patches")
+            && text.contains("structured add or exact-replacement edits")
             && text.contains("After three unsuccessful local iterations")
-            && text.contains("hand that assignment back to `local_actor`")
+            && text.contains("hand that assignment back to the actor")
             && text.contains("do not switch to cloud-authored implementation")
     }));
     assert!(
@@ -222,6 +233,116 @@ async fn reviewed_actor_proposals_execute_through_normal_tools() -> Result<()> {
             .expect("exec_command should return function output")
             .contains("actor-test-passed")
     );
+    assert_eq!(
+        load_local_analysis_stats(test.codex_home_path())?,
+        LocalAnalysisStats {
+            successful_actor_calls: 1,
+            actor_prompt_tokens: 900,
+            actor_completion_tokens: 100,
+            actor_total_tokens: 1_000,
+            ..Default::default()
+        }
+    );
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn stale_structured_edit_returns_retryable_feedback() -> Result<()> {
+    skip_if_no_network!(Ok(()));
+
+    let cloud = responses::start_mock_server().await;
+    let actor = MockServer::start().await;
+    let assignment = json!({
+        "schema_version": 2,
+        "task_id": "stale-edit",
+        "kind": "implementation",
+        "objective": "Rename the parser helper",
+        "allowed_paths": ["src/parser.rs"],
+        "allowed_tools": ["apply_patch"],
+        "tool_call_map": [{
+            "operation": "rename_helper",
+            "tool": "apply_patch",
+            "argument_template": {"path": "src/parser.rs"}
+        }],
+        "acceptance_criteria": ["the helper is renamed"],
+        "context_files": [{
+            "path": "src/parser.rs",
+            "content": "fn old() {}\n",
+            "truncated": false
+        }],
+        "failure_feedback": null
+    });
+    let actor_result = json!({
+        "schema_version": 2,
+        "task_id": "stale-edit",
+        "proposed_edits": [{
+            "kind": "replace",
+            "path": "src/parser.rs",
+            "context_sha256": "stale",
+            "old_text": "fn old() {}",
+            "new_text": "fn new() {}"
+        }],
+        "test_commands": [],
+        "diagnostics": [],
+        "needs_escalation": false
+    });
+    Mock::given(method("POST"))
+        .and(path("/v1/chat/completions"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "choices": [{"message": {"content": actor_result.to_string()}}]
+        })))
+        .expect(1)
+        .mount(&actor)
+        .await;
+    let cloud_responses = responses::mount_sse_sequence(
+        &cloud,
+        vec![
+            responses::sse(vec![
+                responses::ev_response_created("resp-1"),
+                responses::ev_function_call("stale-call", "local_actor", &assignment.to_string()),
+                responses::ev_completed("resp-1"),
+            ]),
+            responses::sse(vec![
+                responses::ev_response_created("resp-2"),
+                responses::ev_assistant_message("message", "retry later"),
+                responses::ev_completed("resp-2"),
+            ]),
+        ],
+    )
+    .await;
+    let actor_url = format!("{}/v1", actor.uri());
+    let test = test_codex()
+        .with_config(move |config| {
+            config.local_analysis.enabled = true;
+            config.local_analysis.backend_url = Some(actor_url);
+            config.local_analysis.backend_model = Some("qwen/qwen3-coder-30b".to_string());
+        })
+        .build_with_auto_env(&cloud)
+        .await?;
+    test.codex
+        .start_or_steer_turn(TurnInputRequest::user_input(vec![UserInput::Text {
+            text: "Delegate a bounded parser rename.".into(),
+            text_elements: Vec::new(),
+        }]))
+        .await?;
+    wait_for_event(&test.codex, |event| {
+        matches!(event, EventMsg::TurnComplete(_))
+    })
+    .await;
+
+    let requests = cloud_responses.requests();
+    let output: serde_json::Value = serde_json::from_str(
+        &requests[1]
+            .function_call_output_text("stale-call")
+            .expect("local_actor should return retry feedback"),
+    )?;
+    assert_eq!(output["status"], "retry");
+    assert!(
+        output["reason"]
+            .as_str()
+            .unwrap()
+            .contains("stale context hash")
+    );
     Ok(())
 }
 
@@ -232,7 +353,7 @@ async fn third_failed_actor_attempt_survives_resume_and_returns_task_to_cloud() 
     let cloud = responses::start_mock_server().await;
     let actor = MockServer::start().await;
     let assignment = json!({
-        "schema_version": 1,
+        "schema_version": 2,
         "task_id": "retry-task",
         "kind": "debug",
         "objective": "Fix the original parser failure",
@@ -240,12 +361,13 @@ async fn third_failed_actor_attempt_survives_resume_and_returns_task_to_cloud() 
         "allowed_tools": ["apply_patch"],
         "tool_call_map": [{"operation": "repair", "tool": "apply_patch", "argument_template": {}}],
         "acceptance_criteria": ["parser tests pass"],
+        "context_files": [],
         "failure_feedback": null
     });
     let actor_result = json!({
-        "schema_version": 1,
+        "schema_version": 2,
         "task_id": "retry-task",
-        "proposed_patches": [],
+        "proposed_edits": [],
         "test_commands": [],
         "diagnostics": [],
         "needs_escalation": false
@@ -337,11 +459,11 @@ async fn third_failed_actor_attempt_survives_resume_and_returns_task_to_cloud() 
     let actor_requests = actor.received_requests().await.unwrap_or_default();
     assert_eq!(actor_requests.len(), 3);
     let retry_body: serde_json::Value = actor_requests[2].body_json()?;
-    assert!(
-        retry_body["messages"][0]["content"]
-            .as_str()
-            .unwrap()
-            .contains("Prior failed attempts JSON:\n[\"compile failed\",\"unit test failed\"]")
+    let retry_user_message: serde_json::Value =
+        serde_json::from_str(retry_body["messages"][1]["content"].as_str().unwrap())?;
+    assert_eq!(
+        retry_user_message["prior_failed_attempts"],
+        json!(["compile failed", "unit test failed"])
     );
     let cloud_requests = cloud_responses.requests();
     assert_eq!(cloud_requests.len(), 6);
@@ -367,14 +489,15 @@ async fn unavailable_local_actor_returns_original_task_to_cloud() -> Result<()> 
         .mount(&actor)
         .await;
     let assignment = json!({
-        "schema_version": 1,
+        "schema_version": 2,
         "task_id": "unavailable-task",
         "kind": "implementation",
         "objective": "Fix the original build failure",
         "allowed_paths": ["src/main.rs"],
         "allowed_tools": ["apply_patch"],
         "tool_call_map": [{"operation": "repair", "tool": "apply_patch", "argument_template": {}}],
-        "acceptance_criteria": ["build passes"]
+        "acceptance_criteria": ["build passes"],
+        "context_files": []
     });
     let cloud_responses = responses::mount_sse_sequence(
         &cloud,
@@ -421,8 +544,13 @@ async fn unavailable_local_actor_returns_original_task_to_cloud() -> Result<()> 
         .function_call_output_text("unavailable-call")
         .unwrap();
     let handoff: serde_json::Value = serde_json::from_str(&output)?;
+    let mut expected_assignment = assignment;
+    expected_assignment
+        .as_object_mut()
+        .expect("assignment should be an object")
+        .remove("context_files");
     assert_eq!(handoff["status"], "escalate");
-    assert_eq!(handoff["original_assignment"], assignment);
+    assert_eq!(handoff["original_assignment"], expected_assignment);
     assert!(handoff["reason"].as_str().unwrap().contains("HTTP 503"));
     Ok(())
 }

@@ -1,0 +1,11 @@
+---
+source: tui/src/chatwidget/tests/actor_model_tests.rs
+expression: "normalize_snapshot_paths(render_bottom_popup(&chat, 80))"
+---
+• Loading local actor model (0s • esc to interrupt)
+  └ qwen3-coder-30b-a3b-instruct · 32768 token context
+
+
+› Waiting for the local actor model…
+
+  GPT-5.6-Sol default · /tmp/project

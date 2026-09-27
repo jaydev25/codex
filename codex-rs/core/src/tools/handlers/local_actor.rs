@@ -6,14 +6,17 @@ use crate::tools::context::FunctionToolOutput;
 use crate::tools::context::ToolInvocation;
 use crate::tools::context::ToolPayload;
 use crate::tools::context::boxed_tool_output;
+use crate::tools::handlers::local_actor_edits::render_actor_edits;
 use crate::tools::handlers::parse_arguments;
 use crate::tools::registry::CoreToolRuntime;
 use crate::tools::registry::ToolExecutor;
-use codex_apply_patch::Hunk;
 use codex_local_models::ActorAssignment;
 use codex_local_models::ActorAttemptDecision;
 use codex_local_models::ActorAttemptTracker;
+use codex_local_models::ActorContextFile;
 use codex_local_models::LocalActorError;
+use codex_local_models::LocalActorStatsEvent;
+use codex_local_models::append_local_actor_stats_event;
 use codex_local_models::run_local_actor;
 use codex_protocol::models::ResponseItem;
 use codex_tools::JsonSchema;
@@ -35,6 +38,7 @@ struct ActorRuns(Mutex<HashMap<String, ActorRun>>);
 
 struct ActorRun {
     assignment: ActorAssignment,
+    context_files: Vec<ActorContextFile>,
     tracker: ActorAttemptTracker,
     in_flight: bool,
     terminal: bool,
@@ -68,9 +72,27 @@ impl ToolExecutor<ToolInvocation> for LocalActorHandler {
             ]),
             Some(false.into()),
         );
+        let context_file = JsonSchema::object(
+            BTreeMap::from([
+                ("path".to_string(), string()),
+                ("content".to_string(), string()),
+                (
+                    "truncated".to_string(),
+                    JsonSchema::boolean(Some(
+                        "Whether the supplied content omits any part of the file.".to_string(),
+                    )),
+                ),
+            ]),
+            Some(vec![
+                "path".to_string(),
+                "content".to_string(),
+                "truncated".to_string(),
+            ]),
+            Some(false.into()),
+        );
         ToolSpec::Function(ResponsesApiTool {
             name: TOOL_NAME.to_string(),
-            description: "Delegate one bounded implementation, unit-test, E2E-test, or debugging assignment to the configured local LM Studio actor. Supply structured JSON, not line-by-line code, and set failure_feedback to null on the first attempt. After a failed patch or test, call again with the same original assignment and failure_feedback. The third failed attempt returns the original task for cloud replanning; the cloud should diagnose it and delegate a materially revised assignment with a new task_id back to the actor. Proposals are untrusted; this tool never applies patches or runs commands."
+            description: "Delegate one bounded implementation, unit-test, E2E-test, or debugging assignment to the configured local LM Studio actor. Supply bounded source context separately from the assignment and set failure_feedback to null on the first attempt. The actor returns structured edits; trusted Codex code validates and renders patches for cloud review. After a failed edit or test, call again with the unchanged assignment and context plus failure_feedback. The third failed attempt returns the original task for cloud replanning. This tool never applies patches or runs commands."
                 .to_string(),
             strict: true,
             defer_loading: None,
@@ -98,6 +120,10 @@ impl ToolExecutor<ToolInvocation> for LocalActorHandler {
                         JsonSchema::array(tool_map, None),
                     ),
                     ("acceptance_criteria".to_string(), string_list()),
+                    (
+                        "context_files".to_string(),
+                        JsonSchema::array(context_file, None),
+                    ),
                     ("failure_feedback".to_string(), nullable_string()),
                 ]),
                 Some(vec![
@@ -109,6 +135,7 @@ impl ToolExecutor<ToolInvocation> for LocalActorHandler {
                     "allowed_tools".to_string(),
                     "tool_call_map".to_string(),
                     "acceptance_criteria".to_string(),
+                    "context_files".to_string(),
                     "failure_feedback".to_string(),
                 ]),
                 Some(false.into()),
@@ -140,6 +167,18 @@ impl ToolExecutor<ToolInvocation> for LocalActorHandler {
                 })
                 .transpose()?
                 .flatten();
+            let context_files = input
+                .as_object_mut()
+                .and_then(|object| object.remove("context_files"))
+                .map(|value| {
+                    serde_json::from_value::<Vec<ActorContextFile>>(value).map_err(|error| {
+                        FunctionCallError::RespondToModel(format!(
+                            "invalid actor context files: {error}"
+                        ))
+                    })
+                })
+                .transpose()?
+                .unwrap_or_default();
             let assignment: ActorAssignment = serde_json::from_value(input).map_err(|error| {
                 FunctionCallError::RespondToModel(format!("invalid actor assignment: {error}"))
             })?;
@@ -185,7 +224,11 @@ impl ToolExecutor<ToolInvocation> for LocalActorHandler {
                     active.insert(assignment.task_id.clone(), run);
                 }
                 if let Some(run) = active.get_mut(&assignment.task_id) {
-                    if run.assignment != assignment || run.in_flight || run.terminal {
+                    if run.assignment != assignment
+                        || run.context_files != context_files
+                        || run.in_flight
+                        || run.terminal
+                    {
                         return Err(FunctionCallError::RespondToModel(
                             "actor task changed its original assignment, is running, or already escalated"
                                 .to_string(),
@@ -229,6 +272,7 @@ impl ToolExecutor<ToolInvocation> for LocalActorHandler {
                         assignment.task_id.clone(),
                         ActorRun {
                             assignment: assignment.clone(),
+                            context_files: context_files.clone(),
                             tracker: ActorAttemptTracker::new(assignment.clone()),
                             in_flight: true,
                             terminal: false,
@@ -237,8 +281,15 @@ impl ToolExecutor<ToolInvocation> for LocalActorHandler {
                     (1, Vec::new())
                 }
             };
-            let result =
-                run_local_actor(&client, &base_url, backend_model, &assignment, &failures).await;
+            let result = run_local_actor(
+                &client,
+                &base_url,
+                backend_model,
+                &assignment,
+                &context_files,
+                &failures,
+            )
+            .await;
             if let Some(run) = runs
                 .0
                 .lock()
@@ -248,11 +299,38 @@ impl ToolExecutor<ToolInvocation> for LocalActorHandler {
                 run.in_flight = false;
             }
             let result = match result {
-                Ok(result) => result,
+                Ok(output) => {
+                    if let Some(usage) = output.usage
+                        && let Err(error) = append_local_actor_stats_event(
+                            &invocation.turn.config.codex_home,
+                            &LocalActorStatsEvent {
+                                prompt_tokens: usage.prompt_tokens,
+                                completion_tokens: usage.completion_tokens,
+                                total_tokens: usage.total_tokens,
+                            },
+                        )
+                    {
+                        tracing::warn!(%error, "failed to record local actor usage");
+                    }
+                    output.result
+                }
                 Err(LocalActorError::InvalidAssignment(message)) => {
                     return Err(FunctionCallError::RespondToModel(message));
                 }
                 Err(LocalActorError::InvalidResponse(message)) => {
+                    let output = serde_json::to_string(&json!({
+                        "status": "retry",
+                        "original_assignment": assignment,
+                        "failures": failures,
+                        "reason": message,
+                    }))
+                    .map_err(|error| FunctionCallError::RespondToModel(error.to_string()))?;
+                    return Ok(boxed_tool_output(FunctionToolOutput::from_text(
+                        output,
+                        Some(true),
+                    )));
+                }
+                Err(LocalActorError::UnsafeResponse(message)) => {
                     if let Some(run) = runs
                         .0
                         .lock()
@@ -295,28 +373,23 @@ impl ToolExecutor<ToolInvocation> for LocalActorHandler {
                     )));
                 }
             };
-            if let Err(reason) = validate_actor_patches(&result) {
-                if let Some(run) = runs
-                    .0
-                    .lock()
-                    .unwrap_or_else(std::sync::PoisonError::into_inner)
-                    .get_mut(&assignment.task_id)
-                {
-                    run.terminal = true;
+            let patches = match render_actor_edits(&result.proposed_edits, &context_files) {
+                Ok(patches) => patches,
+                Err(reason) => {
+                    let output = serde_json::to_string(&json!({
+                        "status": "retry",
+                        "original_assignment": assignment,
+                        "failures": failures,
+                        "reason": reason,
+                    }))
+                    .map_err(|error| FunctionCallError::RespondToModel(error.to_string()))?;
+                    return Ok(boxed_tool_output(FunctionToolOutput::from_text(
+                        output,
+                        Some(true),
+                    )));
                 }
-                let output = serde_json::to_string(&json!({
-                    "status": "escalate",
-                    "original_assignment": assignment,
-                    "failures": failures,
-                    "reason": reason,
-                }))
-                .map_err(|error| FunctionCallError::RespondToModel(error.to_string()))?;
-                return Ok(boxed_tool_output(FunctionToolOutput::from_text(
-                    output,
-                    Some(true),
-                )));
-            }
-            let execution_plan = actor_execution_plan(&result);
+            };
+            let execution_plan = actor_execution_plan(&patches, &result.test_commands);
             let output = serde_json::to_string(&json!({
                 "status": "proposal",
                 "attempt": attempt,
@@ -337,40 +410,17 @@ impl ToolExecutor<ToolInvocation> for LocalActorHandler {
 
 impl CoreToolRuntime for LocalActorHandler {}
 
-fn validate_actor_patches(result: &codex_local_models::ActorResult) -> Result<(), String> {
-    for patch in &result.proposed_patches {
-        let parsed = codex_apply_patch::parse_patch(&patch.apply_patch)
-            .map_err(|error| format!("invalid actor patch proposal: {error}"))?;
-        if parsed.hunks.len() != 1
-            || parsed.hunks[0].path().to_string_lossy() != patch.path
-            || matches!(
-                &parsed.hunks[0],
-                Hunk::UpdateFile {
-                    move_path: Some(_),
-                    ..
-                }
-            )
-        {
-            return Err(
-                "actor patch proposal changes a path outside its declared file".to_string(),
-            );
-        }
-    }
-    Ok(())
-}
-
-fn actor_execution_plan(result: &codex_local_models::ActorResult) -> Vec<serde_json::Value> {
-    result
-        .proposed_patches
+fn actor_execution_plan(patches: &[String], test_commands: &[String]) -> Vec<serde_json::Value> {
+    patches
         .iter()
         .map(|patch| {
             json!({
                 "tool": "apply_patch",
-                "arguments": patch.apply_patch,
+                "arguments": patch,
                 "reviewed": false,
             })
         })
-        .chain(result.test_commands.iter().map(|command| {
+        .chain(test_commands.iter().map(|command| {
             json!({
                 "tool": "exec_command",
                 "arguments": { "cmd": command },
@@ -399,20 +449,26 @@ async fn recover_actor_run(invocation: &ToolInvocation, task_id: &str) -> Option
                     .as_object_mut()
                     .and_then(|object| object.remove("failure_feedback"))
                     .and_then(|value| value.as_str().map(str::to_owned));
+                let context_files = input
+                    .as_object_mut()
+                    .and_then(|object| object.remove("context_files"))
+                    .and_then(|value| serde_json::from_value::<Vec<ActorContextFile>>(value).ok())
+                    .unwrap_or_default();
                 let Ok(assignment) = serde_json::from_value::<ActorAssignment>(input) else {
                     continue;
                 };
                 if assignment.task_id != task_id {
                     continue;
                 }
-                pending_calls.insert(call_id.clone(), (assignment, feedback));
+                pending_calls.insert(call_id.clone(), (assignment, context_files, feedback));
             }
             ResponseItem::FunctionCallOutput {
                 call_id: Some(call_id),
                 output,
                 ..
             } => {
-                let Some((assignment, feedback)) = pending_calls.remove(call_id) else {
+                let Some((assignment, context_files, feedback)) = pending_calls.remove(call_id)
+                else {
                     continue;
                 };
                 let status = output
@@ -425,7 +481,7 @@ async fn recover_actor_run(invocation: &ToolInvocation, task_id: &str) -> Option
                             .and_then(serde_json::Value::as_str)
                             .map(str::to_owned)
                     });
-                if !matches!(status.as_deref(), Some("proposal" | "escalate")) {
+                if !matches!(status.as_deref(), Some("proposal" | "retry" | "escalate")) {
                     continue;
                 }
                 match &mut run {
@@ -433,11 +489,15 @@ async fn recover_actor_run(invocation: &ToolInvocation, task_id: &str) -> Option
                         run = Some(ActorRun {
                             tracker: ActorAttemptTracker::new(assignment.clone()),
                             assignment,
+                            context_files,
                             in_flight: false,
                             terminal: false,
                         });
                     }
-                    Some(existing) if existing.assignment == assignment => {
+                    Some(existing)
+                        if existing.assignment == assignment
+                            && existing.context_files == context_files =>
+                    {
                         if let Some(feedback) = feedback {
                             existing.tracker.record_failure(&feedback);
                         }

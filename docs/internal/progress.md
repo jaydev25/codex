@@ -6,12 +6,183 @@
 
 ## Current snapshot
 
-- Current focus: `ARCH-010` session savings is complete; `ARCH-011` honest local-actor usage accounting is ready
-- Current branch: `local`
+- Current focus: `ARCH-015` truncated-context edit design is ready
+- Current branch: `local-exp`
 - Baseline commit: `78245b47a`
 - Baseline working tree: clean before the project-memory files were added
 - Repository map: [features.md](features.md)
+- Codex-local engineering handoff: [codex-local-knowledge.md](codex-local-knowledge.md)
+- Local actor failures: [local-actor-failures.md](local-actor-failures.md)
 - Work, risks, and decisions: [trackers.md](trackers.md)
+
+## 2026-09-28 — Usage HUD reset time and actor-planner refinement
+
+### Outcome
+
+- Added a focused usage-HUD formatter and wired it to show five-hour and weekly
+  remaining percentages, the next available reset time, and approximate
+  current-session locally saved tokens on one footer line.
+- Saved tokens remain visible as `Saved ~0` when authoritative rate-limit data
+  exists. Sessions with neither rate-limit data nor savings keep the HUD hidden.
+- Delegated the formatter, its snapshot coverage, and planner-guidance update as
+  bounded actor microtasks. All rejected attempts are recorded in
+  [local-actor-failures.md](local-actor-failures.md); none was applied.
+- Refined the actor planner to prefer one coherent file responsibility per
+  assignment, one complete add per new path, exact signatures, positive output
+  requirements, and focused repository-approved commands. Repeated layout
+  confusion now prompts splitting implementation and tests into new actor tasks.
+- No release build or installation was run; manual installation is intentionally
+  left to the user after development handoff.
+
+### Validation
+
+- `just test -p codex-tui usage_hud` — 3 tests passed, including two reviewed
+  inline snapshots for the complete and zero-data displays.
+- `just test -p codex-tui reconnect_exhaustion_and_unknown_initial_thread_stay_offline`
+  — representative no-rate-limit rendering passed.
+- `just test -p codex-core local_actor` — 7 tests passed.
+- `just test -p codex-tui` — 4,917 passed; 13 unrelated Windows snapshot
+  failures and one existing timing timeout remained. All generated unrelated
+  snapshot updates were rejected.
+
+### Decisions, risks, and follow-up
+
+- `ARCH-017` is complete at the development-validation level. Manual build,
+  installation, and live visual confirmation remain deliberately external to
+  this development run.
+- `ARCH-015` remains the next architecture item.
+
+## 2026-09-28 — Actor context loading and live structured-edit validation
+
+### Outcome
+
+- Added actor-model context-length input with positive-integer validation,
+  retry/back behavior, and enforcement of LM Studio's reported maximum.
+- Added visible indeterminate loading, success, invalid-input, and actionable
+  load-failure states. Normal composer input remains disabled until loading
+  succeeds. The LM Studio CLI emits progress, but the current blocking process
+  abstraction does not stream it, so the TUI intentionally shows a spinner.
+- Made model activation deterministic: Codex Local unloads all loaded instances
+  with the selected model key, then loads exactly one instance with the entered
+  context, maximum GPU offload, and parallelism one. This fixes the observed
+  duplicate-instance case where the later load received only about 3 GiB VRAM.
+- Restricted the actor response schema to `replace` when every allowed path has
+  complete context, or `add` when every path is new. Mixed assignments retain
+  both variants and all trusted edit validation remains enforced.
+- Ran a live existing-file actor task at requested context `32768`. Attempt 1
+  correctly used `replace` but was rejected because it reversed a helper's
+  arguments and proposed direct `cargo test`. Retry 2 corrected both issues;
+  its reviewed edit was applied and its `just` test command passed.
+- Added [codex-local-build-install.md](codex-local-build-install.md) with the
+  repeatable PowerShell build/install and `-SkipBuild` commands.
+
+### Validation
+
+- `just test -p codex-local-models` — 48 tests passed after the reviewed actor
+  proposal was applied.
+- `just test -p codex-tui actor_model` — 12 focused tests passed.
+- Five actor-model TUI snapshots were reviewed and accepted: context input,
+  loading/input lock, success, invalid input, and load failure.
+- The broader TUI suite compiled and ran 4,924 tests; 13 unrelated existing
+  Windows snapshot/timing tests failed. Their generated snapshot updates were
+  reviewed and rejected rather than accepted.
+- `just fix -p codex-local-models` and `just fix -p codex-tui` passed before the
+  final actor-authored test addition; final fix/format follows this entry.
+- The release and installed `codex-local.exe` SHA-256 hashes matched. Live LM
+  Studio state showed one Qwen instance, `parallel: 1`, and context 33,024
+  (the requested 32,768 plus LM Studio's 256-token runtime overhead).
+
+### Decisions, risks, and follow-up
+
+- `ARCH-014` and `ARCH-016` are complete at the recorded validation level.
+- Continue sending bounded microtasks to the actor. After three failed attempts,
+  cloud may diagnose and materially re-scope a new assignment, but implementation
+  remains delegated back to the actor rather than silently switching to
+  cloud-authored code.
+- `ARCH-015` remains the next architecture item.
+
+## 2026-09-26 — Structured actor edits and failure ledger
+
+### Outcome
+
+- Replaced actor-authored `apply_patch` strings with actor schema version 2:
+  structured add-file or exact-replacement edits only.
+- Added bounded context files to the `local_actor` tool. The immutable planner
+  assignment remains in the system message while repository context, hashes,
+  truncation state, and prior failures are sent separately as lower-trust user
+  content.
+- Required complete replacement context, matching SHA-256, and `old_text` that
+  occurs exactly once. Trusted core code renders and reparses each patch before
+  returning it for cloud review.
+- Made malformed/stale/ambiguous edit responses retryable while preserving
+  immediate escalation for unauthorized paths, unauthorized tools, and
+  transport failures. Retry recovery now also requires unchanged context.
+- Added the append-only
+  [local actor failure ledger](local-actor-failures.md) and recorded every actor
+  or orchestration failure observed during `ARCH-011` and `ARCH-013`. None of
+  those rejected proposals was applied.
+
+### Validation
+
+- `just test -p codex-local-models` — 39 tests passed.
+- `just test -p codex-core local_actor` — 7 tests passed; 4,031 skipped by the
+  focused filter.
+- `just fix -p codex-local-models` and `just fix -p codex-core` — passed.
+- `cargo check -p codex-core -p codex-local-models` — passed after the final
+  trusted-renderer adjustment.
+- `cargo fmt --all -- --check` and `git diff --check` — passed. The full
+  `just fmt` recipe completed Rust formatting but could not run unrelated
+  Python and Bazel/Starlark stages because `uv` and `dotslash` are unavailable.
+- `scripts/install/install-local-dev.ps1` — built both release binaries. The
+  running CLI locked its installed executable, so the existing binary was
+  preserved as a timestamped backup and the release binary was installed
+  side-by-side at the normal path. Source and installed SHA-256 hashes match.
+
+### Decisions, risks, and follow-up
+
+- `ARCH-013` is complete. Raw patch framing is no longer part of actor output.
+- Truncated context is intentionally unsuitable for replacement edits. A later
+  extension needs a reviewable range/anchor design rather than weakening the
+  complete-context invariant.
+- The new schema is covered by mocks and installed in a newly built
+  `codex-local` binary, but has not yet been exercised with live LM Studio
+  inference.
+
+## 2026-09-26 — Actor usage telemetry and engineering handoff
+
+### Outcome
+
+- Captured optional OpenAI-compatible prompt, completion, and total usage from
+  successful local-actor responses. Missing or malformed usage leaves a valid
+  actor proposal unchanged and records no telemetry.
+- Added a content-free actor usage ledger under `CODEX_HOME` and extended the
+  startup-baselined session aggregate with saturating actor counters.
+- Kept `Session tokens saved` analysis-only. `/status` now labels analysis work
+  separately and shows actor calls/input/output as local usage, without an
+  unsupported conversion to avoided cloud tokens.
+- Added [codex-local-knowledge.md](codex-local-knowledge.md) as the consolidated
+  architecture, source-map, invariant, workflow, risk, and lessons handoff.
+- Recorded repeated local actor patch-framing failures as an improvement area;
+  the trusted validator rejected every malformed proposal and applied none.
+
+### Validation
+
+- `just test -p codex-local-models` — 38 tests passed.
+- `just test -p codex-core local_actor` — 4 tests passed; 4,031 skipped by the
+  focused filter.
+- `just test -p codex-tui status_snapshot_shows_session_local_token_savings` —
+  passed after direct snapshot review and acceptance.
+- `just fmt` — Rust formatting completed; the overall recipe still reports the
+  tracked missing `uv` and `dotslash` tools for untouched Python and Bazel
+  surfaces.
+- `git diff --check` — passed; Git emitted only line-ending conversion warnings.
+
+### Decisions, risks, and follow-up
+
+- `ARCH-011` is complete. Actor tokens remain usage, not savings, until an
+  equivalent-cloud-work comparison model is designed and reviewed.
+- A future actor protocol improvement should prefer structured file operations
+  or tightly bounded framing repair over weakening trusted patch validation.
 
 ## 2026-09-26 — Small-task routing, 65K context, and session savings
 

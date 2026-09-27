@@ -17,18 +17,28 @@ use tokio::io::AsyncWriteExt;
 use url::Url;
 
 mod actor;
+mod actor_schema;
+mod lm_studio;
 pub use actor::ActorAssignment;
 pub use actor::ActorAttemptDecision;
 pub use actor::ActorAttemptTracker;
+pub use actor::ActorContextFile;
+pub use actor::ActorEdit;
 pub use actor::ActorEscalation;
 pub use actor::ActorResult;
+pub use actor::ActorRunOutput;
 pub use actor::ActorTaskKind;
 pub use actor::ActorToolCallMap;
+pub use actor::ActorUsage;
 pub use actor::LocalActorError;
 pub use actor::run_local_actor;
+pub use lm_studio::LmStudioModelInfo;
+pub use lm_studio::load_lm_studio_model;
+pub use lm_studio::resolve_lm_studio_model;
 
 pub const LOCAL_MODELS_DIR_ENV: &str = "CODEX_LOCAL_MODELS_DIR";
 pub const LOCAL_ANALYSIS_STATS_FILE: &str = "local-analysis-stats.jsonl";
+pub const LOCAL_ACTOR_STATS_FILE: &str = "local-actor-stats.jsonl";
 
 const DEFAULT_MODELS_DIR_NAME: &str = "models";
 const DEFAULT_DOWNLOADS_DIR_NAME: &str = ".downloads";
@@ -51,6 +61,18 @@ pub struct LocalAnalysisStats {
     pub raw_bytes: u64,
     pub forwarded_bytes: u64,
     pub estimated_cloud_input_tokens_avoided: u64,
+    pub successful_actor_calls: u64,
+    pub actor_prompt_tokens: u64,
+    pub actor_completion_tokens: u64,
+    pub actor_total_tokens: u64,
+}
+
+/// Backend-reported usage for one successful local-actor completion.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct LocalActorStatsEvent {
+    pub prompt_tokens: u64,
+    pub completion_tokens: u64,
+    pub total_tokens: u64,
 }
 
 impl LocalAnalysisStats {
@@ -66,8 +88,34 @@ impl LocalAnalysisStats {
             estimated_cloud_input_tokens_avoided: self
                 .estimated_cloud_input_tokens_avoided
                 .saturating_sub(baseline.estimated_cloud_input_tokens_avoided),
+            successful_actor_calls: self
+                .successful_actor_calls
+                .saturating_sub(baseline.successful_actor_calls),
+            actor_prompt_tokens: self
+                .actor_prompt_tokens
+                .saturating_sub(baseline.actor_prompt_tokens),
+            actor_completion_tokens: self
+                .actor_completion_tokens
+                .saturating_sub(baseline.actor_completion_tokens),
+            actor_total_tokens: self
+                .actor_total_tokens
+                .saturating_sub(baseline.actor_total_tokens),
         }
     }
+}
+
+pub fn append_local_actor_stats_event(
+    codex_home: &Path,
+    event: &LocalActorStatsEvent,
+) -> io::Result<()> {
+    fs::create_dir_all(codex_home)?;
+    let mut encoded = serde_json::to_vec(event).map_err(io::Error::other)?;
+    encoded.push(b'\n');
+    let mut file = fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(codex_home.join(LOCAL_ACTOR_STATS_FILE))?;
+    file.write_all(&encoded)
 }
 
 pub fn append_local_analysis_stats_event(
@@ -88,9 +136,7 @@ pub fn load_local_analysis_stats(codex_home: &Path) -> io::Result<LocalAnalysisS
     let path = codex_home.join(LOCAL_ANALYSIS_STATS_FILE);
     let contents = match fs::read_to_string(path) {
         Ok(contents) => contents,
-        Err(error) if error.kind() == io::ErrorKind::NotFound => {
-            return Ok(LocalAnalysisStats::default());
-        }
+        Err(error) if error.kind() == io::ErrorKind::NotFound => String::new(),
         Err(error) => return Err(error),
     };
     let mut stats = LocalAnalysisStats::default();
@@ -110,6 +156,31 @@ pub fn load_local_analysis_stats(codex_home: &Path) -> io::Result<LocalAnalysisS
                     .raw_estimated_tokens
                     .saturating_sub(event.forwarded_estimated_tokens),
             );
+    }
+    let actor_path = codex_home.join(LOCAL_ACTOR_STATS_FILE);
+    let actor_contents = match fs::read_to_string(actor_path) {
+        Ok(contents) => contents,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(stats),
+        Err(error) => return Err(error),
+    };
+    for line in actor_contents
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+    {
+        let event: LocalActorStatsEvent = serde_json::from_str(line).map_err(|error| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("invalid local actor stats: {error}"),
+            )
+        })?;
+        stats.successful_actor_calls = stats.successful_actor_calls.saturating_add(1);
+        stats.actor_prompt_tokens = stats
+            .actor_prompt_tokens
+            .saturating_add(event.prompt_tokens);
+        stats.actor_completion_tokens = stats
+            .actor_completion_tokens
+            .saturating_add(event.completion_tokens);
+        stats.actor_total_tokens = stats.actor_total_tokens.saturating_add(event.total_tokens);
     }
     Ok(stats)
 }
@@ -260,7 +331,7 @@ pub fn classify_analysis_command(command: &str) -> Option<AnalysisWorkloadKind> 
         .split(|character: char| character.is_whitespace() || ";&|()".contains(character))
         .filter(|token| !token.is_empty())
         .collect::<Vec<_>>();
-    let has = |candidate: &str| tokens.iter().any(|token| *token == candidate);
+    let has = |candidate: &str| tokens.contains(&candidate);
     if has("test")
         || has("pytest")
         || has("nextest")

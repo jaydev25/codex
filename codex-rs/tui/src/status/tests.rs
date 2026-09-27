@@ -395,6 +395,10 @@ async fn status_snapshot_shows_session_local_token_savings() {
             raw_bytes: 2_097_152,
             forwarded_bytes: 131_072,
             estimated_cloud_input_tokens_avoided: 491_520,
+            successful_actor_calls: 2,
+            actor_prompt_tokens: 2_700,
+            actor_completion_tokens: 300,
+            actor_total_tokens: 3_000,
         },
         /*refreshing_rate_limits*/ false,
     );

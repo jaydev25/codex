@@ -1,0 +1,5 @@
+---
+source: tui/src/chatwidget/tests/actor_model_tests.rs
+expression: history_snapshot(&mut rx)
+---
+• Local actor model set to qwen3-coder-30b-a3b-instruct with a 32768-token context.

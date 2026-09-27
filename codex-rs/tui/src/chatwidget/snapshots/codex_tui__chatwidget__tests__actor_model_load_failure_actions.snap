@@ -1,0 +1,15 @@
+---
+source: tui/src/chatwidget/tests/actor_model_tests.rs
+expression: "format!(\"{}\\n--- recovery actions ---\\n{}\", history_snapshot(&mut rx),\nrender_bottom_popup(&chat, 80))"
+---
+■ Could not load local actor model: insufficient GPU memory
+
+--- recovery actions ---
+  Local actor model failed to load
+  qwen3-coder-30b-a3b-instruct · 32768 tokens
+
+› 1. Retry                 Try the same model and context length again
+  2. Choose another model  Return to the LM Studio actor-model picker
+  3. Cancel                Keep the previous actor-model configuration
+
+  Press enter to confirm or esc to go back

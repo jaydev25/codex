@@ -20,9 +20,9 @@ use codex_protocol::config_types::ApprovalsReviewer;
 use codex_protocol::config_types::ServiceTier;
 use codex_protocol::models::PermissionProfile;
 use codex_utils_sandbox_summary::summarize_permission_profile;
-use ratatui::text::Line;
 
 use super::status_state::TerminalTitleStatusKind;
+use super::usage_hud::format_usage_hud;
 
 /// Items shown in the terminal title when the user has not configured a
 /// custom selection. Unnamed threads omit the name until generation starts.
@@ -310,31 +310,29 @@ impl ChatWidget {
 
     fn refresh_usage_hud(&mut self) {
         let snapshot = self.rate_limit_snapshots_by_limit_id.get("codex");
-        let five_hour = snapshot
-            .and_then(five_hour_status_window)
-            .map(|(window, _)| (100.0 - window.used_percent).clamp(0.0, 100.0));
-        let weekly = snapshot
-            .and_then(weekly_status_window)
-            .map(|(window, _)| (100.0 - window.used_percent).clamp(0.0, 100.0));
+        let five_hour_window = snapshot.and_then(five_hour_status_window);
+        let weekly_window = snapshot.and_then(weekly_status_window);
+        let five_hour =
+            five_hour_window.map(|(window, _)| (100.0 - window.used_percent).clamp(0.0, 100.0));
+        let weekly =
+            weekly_window.map(|(window, _)| (100.0 - window.used_percent).clamp(0.0, 100.0));
+        let next_reset = five_hour_window
+            .and_then(|(window, _)| window.resets_at.as_deref())
+            .or_else(|| weekly_window.and_then(|(window, _)| window.resets_at.as_deref()));
         let saved = load_local_analysis_stats(&self.config.codex_home)
             .unwrap_or_default()
             .saturating_sub(&self.local_analysis_stats_baseline)
             .estimated_cloud_input_tokens_avoided;
-        let mut parts = Vec::new();
-        if let Some(percent) = five_hour {
-            parts.push(format!("5h {percent:.0}%"));
-        }
-        if let Some(percent) = weekly {
-            parts.push(format!("W {percent:.0}%"));
-        }
-        if saved > 0 {
-            parts.push(format!(
-                "Session local ~{}",
-                format_tokens_compact(saved.min(i64::MAX as u64) as i64)
-            ));
-        }
+        let has_rate_limits = five_hour_window.is_some() || weekly_window.is_some();
         self.bottom_pane
-            .set_usage_hud((!parts.is_empty()).then(|| Line::from(parts.join(" · ")).dim()));
+            .set_usage_hud((has_rate_limits || saved > 0).then(|| {
+                format_usage_hud(
+                    five_hour,
+                    weekly,
+                    next_reset,
+                    saved.min(i64::MAX as u64) as i64,
+                )
+            }));
     }
 
     /// Recomputes and emits the terminal title from config and runtime state.

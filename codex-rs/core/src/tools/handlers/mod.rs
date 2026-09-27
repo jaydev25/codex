@@ -8,6 +8,7 @@ pub(crate) mod get_context_remaining_spec;
 mod list_available_plugins_to_install;
 pub(crate) mod list_available_plugins_to_install_spec;
 mod local_actor;
+mod local_actor_edits;
 mod mcp;
 mod mcp_resource;
 pub(crate) mod mcp_resource_spec;

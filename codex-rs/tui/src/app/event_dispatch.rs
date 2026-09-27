@@ -1817,22 +1817,42 @@ impl App {
                     .add_error_message(format!("Could not list LM Studio models: {error}")),
             },
             AppEvent::UpdateActorModel(model) => {
-                let apply_result = ConfigEditsBuilder::for_config_path(
-                    self.local_settings.user_config_path.as_path(),
-                )
-                .set_local_actor_model(&model)
-                .apply()
-                .await;
-                match apply_result {
-                    Ok(()) => {
-                        self.chat_widget.set_actor_model(model);
-                        app_server.reload_user_config().await?;
-                    }
-                    Err(error) => self
-                        .chat_widget
-                        .add_error_message(format!("Failed to save actor model: {error}")),
-                }
+                self.begin_actor_model_metadata_lookup(model);
             }
+            AppEvent::ActorModelMetadataLoaded { identifier, result } => {
+                self.finish_actor_model_metadata_lookup(identifier, result);
+            }
+            AppEvent::ActorModelContextSubmitted {
+                identifier,
+                model_key,
+                max_context_length,
+                input,
+            } => {
+                self.submit_actor_model_context(
+                    identifier,
+                    model_key,
+                    max_context_length,
+                    input,
+                );
+            }
+            AppEvent::ActorModelLoadFinished {
+                identifier,
+                model_key,
+                max_context_length,
+                context_length,
+                result,
+            } => {
+                self.finish_actor_model_load(
+                    app_server,
+                    identifier,
+                    model_key,
+                    max_context_length,
+                    context_length,
+                    result,
+                )
+                .await?;
+            }
+            AppEvent::OpenActorModelPicker => self.chat_widget.open_actor_model_popup(),
             AppEvent::AstraSelectedFromModelPicker { thread_id, model, action } => {
                 // Check and apply in the same event so a queued backend update cannot turn a
                 // no-op picker confirmation into a sparkle.

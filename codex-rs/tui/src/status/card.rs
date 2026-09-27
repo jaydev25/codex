@@ -805,8 +805,11 @@ impl StatusHistoryCell {
         }
         self.collect_rate_limit_labels(&rate_limit_state, &mut seen, &mut labels);
         if self.local_analysis_stats.successful_jobs > 0 {
-            push_label(&mut labels, &mut seen, "Session local actor");
+            push_label(&mut labels, &mut seen, "Session local analysis");
             push_label(&mut labels, &mut seen, "Session tokens saved");
+        }
+        if self.local_analysis_stats.successful_actor_calls > 0 {
+            push_label(&mut labels, &mut seen, "Session actor usage");
         }
         self.thread_usage.push_labels(&mut labels, &mut seen);
 
@@ -902,7 +905,7 @@ impl StatusHistoryCell {
             let forwarded_mib =
                 self.local_analysis_stats.forwarded_bytes as f64 / (1024.0 * 1024.0);
             lines.push(formatter.line(
-                "Session local actor",
+                "Session local analysis",
                 vec![Span::from(format!(
                     "{} jobs · {raw_mib:.2} MiB raw → {forwarded_mib:.2} MiB evidence",
                     self.local_analysis_stats.successful_jobs
@@ -915,6 +918,23 @@ impl StatusHistoryCell {
                         .estimated_cloud_input_tokens_avoided
                         .min(i64::MAX as u64) as i64,
                 )), Span::from(" (approximate)").dim()],
+            ));
+        }
+        if self.local_analysis_stats.successful_actor_calls > 0 {
+            lines.push(formatter.line(
+                "Session actor usage",
+                vec![Span::from(format!(
+                    "{} calls · {} in · {} out (local)",
+                    self.local_analysis_stats.successful_actor_calls,
+                    format_tokens_compact(
+                        self.local_analysis_stats.actor_prompt_tokens.min(i64::MAX as u64) as i64,
+                    ),
+                    format_tokens_compact(
+                        self.local_analysis_stats
+                            .actor_completion_tokens
+                            .min(i64::MAX as u64) as i64,
+                    ),
+                ))],
             ));
         }
         let thread_usage_lines = self.thread_usage.lines(&formatter, value_width);

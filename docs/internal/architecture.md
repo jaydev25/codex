@@ -26,9 +26,9 @@ separates planning from execution:
   records, not line-by-line source code or script blocks. The selected cloud
   model remains the authoritative decision maker.
 - **Local Actor (RTX 3090 24 GB):** Receives a validated structured assignment
-  in its system prompt. It writes implementation patches, unit and end-to-end
-  tests, executes permitted validation tools through the existing sandbox and
-  approval path, and attempts bounded debugging/repair. It also handles
+  in its system prompt and bounded repository context as a lower-trust user
+  message. It proposes structured file edits, unit and end-to-end tests, and
+  bounded debugging/repair. It also handles
   token-heavy evidence processing. It cannot alter acceptance criteria,
   grant itself permissions, or approve its own result.
 - **Model Manager:** Resolves a requested capability profile to an installed
@@ -72,14 +72,19 @@ not carry executable script bodies. Reject unknown fields, invalid tools,
 out-of-scope paths, and oversized strings before any actor or tool call.
 
 The actor request has a fixed system preamble followed by the validated JSON
-assignment in the **same system message**. The actor returns a separate strict
-JSON result with proposed file patches, test commands, observed results,
-diagnostics, and `needs_escalation`. Codex validates the result and executes
-every requested operation itself; the local model never receives ambient
-filesystem or shell authority just because its endpoint is on loopback.
+assignment in the **same system message**. Bounded context files are capped by
+file count, per-file bytes, and total bytes, hashed, and sent separately as a
+lower-trust user message. The actor returns strict structured add or exact
+replacement edits, test commands, diagnostics, and `needs_escalation`. Trusted
+Codex code validates authorized paths, complete context hashes, and unique old
+text before rendering `apply_patch` syntax for cloud review. The local model
+never authors executable patch grammar or receives ambient filesystem or shell
+authority just because its endpoint is on loopback.
 
-An unsuccessful iteration means a failed acceptance test, invalid patch,
-invalid actor response, or unresolved diagnostic. Count attempts per original
+An unsuccessful iteration means a failed acceptance test, invalid edit,
+invalid actor response, or unresolved diagnostic. Safe schema, stale-context,
+and ambiguous-match failures return bounded retry feedback; unauthorized paths
+or tools remain terminal. Count attempts per original
 `task_id`, persist the count in the run record, and cap at three. The cloud
 handoff includes all three attempts but bounds raw log content by artifact
 references and requested excerpts. A new cloud assignment may start a new
@@ -243,9 +248,12 @@ raw output, artifact paths, findings, and model responses.
 Successful routing also appends bounded byte and estimated-token counters to a
 persistent ledger. The TUI captures that ledger as a startup baseline and
 subtracts it when rendering the footer and `/status`, making the displayed
-approximate savings session-scoped. The estimate currently represents cloud
-input avoided by large-output analysis; actor inference usage remains separate
-until an honest comparison model is defined.
+approximate savings session-scoped. The estimate represents cloud input avoided
+by large-output analysis. Successful local-actor completions write
+backend-reported prompt, completion, and total counters to a separate ledger;
+`/status` reports those local tokens separately and never adds them to the
+savings estimate. A future conversion requires a reviewed equivalent-cloud-work
+model rather than treating unlike tokenizer streams as interchangeable.
 
 See [Configure and Run a Local Model](../local-model-setup.md) for both the
 existing LM Studio and Codex-managed GGUF workflows.
@@ -441,10 +449,10 @@ independent network services.
 [Validate scope and send assignment in local actor system prompt]
    |
    v
-[Local actor proposes implementation and unit/E2E tests]
+[Local actor proposes structured edits and unit/E2E tests]
    |
    v
-[Coordinator checks patch/command scope and runs approved tests]
+[Coordinator validates context, renders patches, and runs approved tests]
    |
    v
 [Local actor diagnoses failure and repairs]
@@ -506,15 +514,17 @@ names.
 
 ```text
 You are the local implementation and test actor. Return only structured JSON.
-Do not expand the allowed paths, tools, or acceptance criteria. Propose patches
-and validation commands; the coordinator executes them under existing policy.
+Do not expand the allowed paths, tools, or acceptance criteria. Propose
+structured add or exact-replacement edits and validation commands; trusted
+Codex code validates context and renders patches under existing policy.
 Assignment JSON:
 {{validated_actor_assignment_json}}
 ```
 
-The response schema should contain patch operations, assumptions, and suggested
-validation commands. Commands are suggestions until independently approved by
-the coordinator's policy layer.
+Bounded repository context and prior failures follow in a separate user
+message. The response schema contains structured edits, assumptions, and
+suggested validation commands. Commands are suggestions until independently
+approved by the coordinator's policy layer.
 
 ### 5.3 Escalation Report
 

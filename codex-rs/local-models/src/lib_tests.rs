@@ -912,6 +912,7 @@ fn local_analysis_stats_aggregate_successful_offloads() {
             raw_bytes: 30_000,
             forwarded_bytes: 3_000,
             estimated_cloud_input_tokens_avoided: 6_750,
+            ..Default::default()
         }
     );
 }
@@ -923,12 +924,20 @@ fn local_analysis_stats_subtract_a_session_baseline() {
         raw_bytes: 12_000,
         forwarded_bytes: 2_000,
         estimated_cloud_input_tokens_avoided: 2_500,
+        successful_actor_calls: 1,
+        actor_prompt_tokens: 400,
+        actor_completion_tokens: 100,
+        actor_total_tokens: 500,
     };
     let current = LocalAnalysisStats {
         successful_jobs: 5,
         raw_bytes: 20_000,
         forwarded_bytes: 3_000,
         estimated_cloud_input_tokens_avoided: 4_250,
+        successful_actor_calls: 3,
+        actor_prompt_tokens: 1_400,
+        actor_completion_tokens: 350,
+        actor_total_tokens: 1_750,
     };
 
     assert_eq!(
@@ -938,6 +947,44 @@ fn local_analysis_stats_subtract_a_session_baseline() {
             raw_bytes: 8_000,
             forwarded_bytes: 1_000,
             estimated_cloud_input_tokens_avoided: 1_750,
+            successful_actor_calls: 2,
+            actor_prompt_tokens: 1_000,
+            actor_completion_tokens: 250,
+            actor_total_tokens: 1_250,
+        }
+    );
+}
+
+#[test]
+fn local_actor_stats_load_without_an_analysis_ledger() {
+    let directory = tempdir().unwrap();
+    append_local_actor_stats_event(
+        directory.path(),
+        &LocalActorStatsEvent {
+            prompt_tokens: 900,
+            completion_tokens: 100,
+            total_tokens: 1_000,
+        },
+    )
+    .unwrap();
+    append_local_actor_stats_event(
+        directory.path(),
+        &LocalActorStatsEvent {
+            prompt_tokens: 1_800,
+            completion_tokens: 200,
+            total_tokens: 2_000,
+        },
+    )
+    .unwrap();
+
+    assert_eq!(
+        load_local_analysis_stats(directory.path()).unwrap(),
+        LocalAnalysisStats {
+            successful_actor_calls: 2,
+            actor_prompt_tokens: 2_700,
+            actor_completion_tokens: 300,
+            actor_total_tokens: 3_000,
+            ..Default::default()
         }
     );
 }
