@@ -373,22 +373,28 @@ impl ToolExecutor<ToolInvocation> for LocalActorHandler {
                     )));
                 }
             };
-            let patches = match render_actor_edits(&result.proposed_edits, &context_files) {
-                Ok(patches) => patches,
-                Err(reason) => {
-                    let output = serde_json::to_string(&json!({
-                        "status": "retry",
-                        "original_assignment": assignment,
-                        "failures": failures,
-                        "reason": reason,
-                    }))
-                    .map_err(|error| FunctionCallError::RespondToModel(error.to_string()))?;
-                    return Ok(boxed_tool_output(FunctionToolOutput::from_text(
-                        output,
-                        Some(true),
-                    )));
-                }
-            };
+            let cwd = invocation
+                .step_context
+                .environments
+                .primary()
+                .and_then(|environment| environment.cwd().to_abs_path().ok());
+            let patches =
+                match render_actor_edits(&result.proposed_edits, &context_files, cwd.as_deref()) {
+                    Ok(patches) => patches,
+                    Err(reason) => {
+                        let output = serde_json::to_string(&json!({
+                            "status": "retry",
+                            "original_assignment": assignment,
+                            "failures": failures,
+                            "reason": reason,
+                        }))
+                        .map_err(|error| FunctionCallError::RespondToModel(error.to_string()))?;
+                        return Ok(boxed_tool_output(FunctionToolOutput::from_text(
+                            output,
+                            Some(true),
+                        )));
+                    }
+                };
             let execution_plan = actor_execution_plan(&patches, &result.test_commands);
             let output = serde_json::to_string(&json!({
                 "status": "proposal",

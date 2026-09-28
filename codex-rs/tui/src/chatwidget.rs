@@ -381,6 +381,7 @@ mod plan_implementation;
 use self::plan_implementation::PLAN_IMPLEMENTATION_TITLE;
 mod actor_model_context;
 mod actor_model_popup;
+mod background_command_panel;
 pub(crate) use self::actor_model_context::parse_actor_context_length;
 mod model_popup_state;
 mod model_popups;
@@ -1164,6 +1165,7 @@ impl ChatWidget {
                 self.token_info = None;
             }
         }
+        self.refresh_usage_hud();
     }
 
     fn apply_token_info(&mut self, info: TokenUsageInfo) {

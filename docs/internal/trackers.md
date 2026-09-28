@@ -19,7 +19,6 @@
 
 | ID       | Status      | Area                        | Outcome                                                                                                                                           | Owner | Next action                                                            |
 | -------- | ----------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ---------------------------------------------------------------------- |
-| ARCH-015 | Ready | Truncated actor context | Support reviewable edits when an actor receives truncated file context without weakening complete-context replacement guarantees | Codex | Design a bounded range/anchor edit contract with explicit stale-context and ambiguity checks before implementation |
 
 ## Backlog
 
@@ -33,6 +32,7 @@ TODO comments, or crate names. Add only work explicitly requested or agreed.
 
 | ID       | Completed  | Area                   | Outcome                                                                                                                                 | Validation                                              |
 | -------- | ---------- | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| ARCH-015 | 2026-09-28 | Truncated actor context | Added a distinct anchored `replace_excerpt` contract with excerpt-hash, live-file containment, stale-target, target-ambiguity, and rendered-line ambiguity checks while preserving complete-context replacements | 50 local-model tests; 5 focused core renderer tests; no build or install |
 | DOC-001  | 2026-09-19 | Repository knowledge   | Established the architecture/feature map and living tracker/progress notes at baseline `78245b47a`                                      | Source-tree inspection and Markdown review              |
 | ARCH-001 | 2026-09-19 | Hybrid local execution | Extended the architecture with Hugging Face discovery, secure downloads, a model registry, backend compatibility, and runtime switching | Design review and Markdown formatting                   |
 | ARCH-002 | 2026-09-19 | Local-model foundation | Added typed storage configuration, deterministic path precedence, generated schema support, effective runtime paths, and focused tests  | 9 crate tests; config and CLI integration suites        |
@@ -50,6 +50,9 @@ TODO comments, or crate names. Add only work explicitly requested or agreed.
 | ARCH-014 | 2026-09-28 | Live actor validation | Exercised an existing-file unit-test task through live LM Studio inference; schema restriction forced `replace`, cloud review rejected attempt 1, and actor retry 2 produced an accepted edit and compliant test command | Installed release hash match; reviewed actor edit applied; 48 local-model tests passed |
 | ARCH-016 | 2026-09-28 | Actor-model context and loading | Added context-length input and validation, LM Studio maximum enforcement, input lock plus loading/failure states, and deterministic single-instance loading with GPU maximum and parallelism one | 12 focused TUI tests; five reviewed snapshots; 48 local-model tests; installed release hash match; live 32,768-context actor call |
 | ARCH-017 | 2026-09-28 | Usage HUD reset and savings | Added the next available five-hour/weekly reset time beside remaining limits and current-session approximate locally saved tokens, including a visible zero-savings state when rate limits are available | 3 focused TUI tests; 2 reviewed inline snapshots; 7 focused core tests; broader TUI suite reached 4,917 passes |
+| ARCH-018 | 2026-09-28 | Background command panel | Added a bounded top-right quarter panel for active unified-exec background commands and recent output, hidden on small terminals, and refined actor handoff guidance from observed failures | 3 focused TUI tests; 2 reviewed snapshots; no build or install |
+| ARCH-019 | 2026-09-28 | Local actor usage HUD | Added current-session local actor call, input-token, and generated-token totals to the footer HUD while preserving analysis savings as a separate estimate | 4 focused TUI tests; 3 reviewed inline snapshots; no build or install |
+| ARCH-020 | 2026-09-28 | Context and cloud-savings HUD | Added authoritative active cloud-conversation context size and model limit, clarified avoided cloud input as `Cloud saved`, refreshed the HUD on token updates, and promoted complete-context atomic actor handoffs for small mechanical edits | 5 focused TUI tests; 4 reviewed inline snapshots; 5 focused core actor-edit tests; no build or install |
 
 ## Risks and constraints
 

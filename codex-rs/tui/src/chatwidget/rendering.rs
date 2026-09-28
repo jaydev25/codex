@@ -1,5 +1,7 @@
 //! Render composition for the main chat widget surface.
 
+use super::background_command_panel::BackgroundCommandDisplay;
+use super::background_command_panel::render_background_command_panel;
 use super::transcript::ActiveCellLayoutCache;
 use super::transcript::ActiveCellLayoutCacheKey;
 use super::*;
@@ -201,11 +203,46 @@ impl ChatWidget {
                 /*top*/ 1, /*left*/ 0, /*bottom*/ 0, /*right*/ 0,
             )),
         );
-        RenderableItem::Owned(Box::new(flex))
+        let background_commands = self
+            .unified_exec_processes
+            .iter()
+            .map(|process| BackgroundCommandDisplay {
+                command: &process.command_display,
+                recent_output: &process.recent_chunks,
+            })
+            .collect();
+        RenderableItem::Owned(Box::new(ChatWidgetFrameRenderable {
+            content: RenderableItem::Owned(Box::new(flex)),
+            background_commands,
+        }))
     }
 
     pub(crate) fn note_rendered_width(&self, width: u16) {
         self.last_rendered_width.set(Some(width));
+    }
+}
+
+struct ChatWidgetFrameRenderable<'a> {
+    content: RenderableItem<'a>,
+    background_commands: Vec<BackgroundCommandDisplay<'a>>,
+}
+
+impl Renderable for ChatWidgetFrameRenderable<'_> {
+    fn render(&self, area: Rect, buf: &mut Buffer) {
+        self.content.render(area, buf);
+        render_background_command_panel(area, buf, &self.background_commands);
+    }
+
+    fn desired_height(&self, width: u16) -> u16 {
+        self.content.desired_height(width)
+    }
+
+    fn cursor_pos(&self, area: Rect) -> Option<(u16, u16)> {
+        self.content.cursor_pos(area)
+    }
+
+    fn cursor_style(&self, area: Rect) -> crossterm::cursor::SetCursorStyle {
+        self.content.cursor_style(area)
     }
 }
 

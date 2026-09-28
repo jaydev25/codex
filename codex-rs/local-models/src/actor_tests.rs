@@ -192,6 +192,53 @@ fn replacement_requires_current_complete_unique_context() {
     );
 }
 
+#[test]
+fn truncated_context_uses_anchored_excerpt_replacement_schema() {
+    let mut context = context_file();
+    context.truncated = true;
+    let body = actor_request_body(
+        &Url::parse("http://127.0.0.1:1234/v1").unwrap(),
+        "qwen/qwen3-coder-30b",
+        &assignment(),
+        std::slice::from_ref(&context),
+        &[],
+    )
+    .unwrap();
+    let edit_variants =
+        body["response_format"]["json_schema"]["schema"]["definitions"]["ActorEdit"]["oneOf"]
+            .as_array()
+            .expect("ActorEdit variants");
+
+    assert_eq!(edit_variants.len(), 1);
+    assert_eq!(
+        edit_variants[0]["properties"]["kind"]["enum"],
+        serde_json::json!(["replace_excerpt"])
+    );
+}
+
+#[test]
+fn excerpt_replacement_requires_current_unique_anchored_context() {
+    let mut context = context_file();
+    context.truncated = true;
+    let result = ActorResult {
+        schema_version: 2,
+        task_id: "task-1".to_string(),
+        proposed_edits: vec![ActorEdit::ReplaceExcerpt {
+            path: context.path.clone(),
+            context_sha256: context.content_sha256(),
+            before_anchor: "{ ".to_string(),
+            old_text: "old()".to_string(),
+            after_anchor: "; }".to_string(),
+            new_text: "new()".to_string(),
+        }],
+        test_commands: Vec::new(),
+        diagnostics: Vec::new(),
+        needs_escalation: false,
+    };
+
+    assert!(validate_actor_result(&assignment(), &[context], &result).is_ok());
+}
+
 fn context_file() -> ActorContextFile {
     ActorContextFile {
         path: "src/parser.rs".to_string(),

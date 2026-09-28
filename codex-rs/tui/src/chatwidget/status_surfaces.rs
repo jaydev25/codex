@@ -22,6 +22,8 @@ use codex_protocol::models::PermissionProfile;
 use codex_utils_sandbox_summary::summarize_permission_profile;
 
 use super::status_state::TerminalTitleStatusKind;
+use super::usage_hud::UsageHudContext;
+use super::usage_hud::UsageHudData;
 use super::usage_hud::format_usage_hud;
 
 /// Items shown in the terminal title when the user has not configured a
@@ -308,7 +310,7 @@ impl ChatWidget {
         self.refresh_terminal_title_from_selections(&selections);
     }
 
-    fn refresh_usage_hud(&mut self) {
+    pub(super) fn refresh_usage_hud(&mut self) {
         let snapshot = self.rate_limit_snapshots_by_limit_id.get("codex");
         let five_hour_window = snapshot.and_then(five_hour_status_window);
         let weekly_window = snapshot.and_then(weekly_status_window);
@@ -319,20 +321,34 @@ impl ChatWidget {
         let next_reset = five_hour_window
             .and_then(|(window, _)| window.resets_at.as_deref())
             .or_else(|| weekly_window.and_then(|(window, _)| window.resets_at.as_deref()));
-        let saved = load_local_analysis_stats(&self.config.codex_home)
+        let local_stats = load_local_analysis_stats(&self.config.codex_home)
             .unwrap_or_default()
-            .saturating_sub(&self.local_analysis_stats_baseline)
-            .estimated_cloud_input_tokens_avoided;
+            .saturating_sub(&self.local_analysis_stats_baseline);
+        let saved = local_stats.estimated_cloud_input_tokens_avoided;
         let has_rate_limits = five_hour_window.is_some() || weekly_window.is_some();
-        self.bottom_pane
-            .set_usage_hud((has_rate_limits || saved > 0).then(|| {
-                format_usage_hud(
+        let has_actor_usage = local_stats.successful_actor_calls > 0;
+        let context = self.token_info.as_ref().and_then(|info| {
+            info.model_context_window
+                .filter(|limit| *limit > 0)
+                .map(|limit_tokens| UsageHudContext {
+                    used_tokens: info.last_token_usage.tokens_in_context_window(),
+                    limit_tokens,
+                })
+        });
+        self.bottom_pane.set_usage_hud(
+            (has_rate_limits || saved > 0 || has_actor_usage || context.is_some()).then(|| {
+                format_usage_hud(UsageHudData {
                     five_hour,
                     weekly,
                     next_reset,
-                    saved.min(i64::MAX as u64) as i64,
-                )
-            }));
+                    context,
+                    analysis_saved_tokens: saved,
+                    actor_calls: local_stats.successful_actor_calls,
+                    actor_prompt_tokens: local_stats.actor_prompt_tokens,
+                    actor_generated_tokens: local_stats.actor_completion_tokens,
+                })
+            }),
+        );
     }
 
     /// Recomputes and emits the terminal title from config and runtime state.

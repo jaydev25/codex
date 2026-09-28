@@ -5,6 +5,7 @@ use serde_json::Value;
 pub(super) enum ActorEditKind {
     Add,
     Replace,
+    ReplaceExcerpt,
 }
 
 pub(super) fn restrict_actor_edit_schema(
@@ -35,6 +36,7 @@ pub(super) fn filter_variants_by_kind(
     let target_str = match target_kind {
         ActorEditKind::Add => "add",
         ActorEditKind::Replace => "replace",
+        ActorEditKind::ReplaceExcerpt => "replace_excerpt",
     };
 
     let mut matched_variants: Vec<Value> = variants

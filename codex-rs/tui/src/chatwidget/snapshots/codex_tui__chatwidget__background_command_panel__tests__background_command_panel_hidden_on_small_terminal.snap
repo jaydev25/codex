@@ -1,0 +1,5 @@
+---
+source: tui/src/chatwidget/background_command_panel_tests.rs
+expression: rendered(&buffer)
+---
+
