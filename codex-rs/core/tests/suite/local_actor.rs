@@ -1,4 +1,4 @@
-//! Exercises the cloud-planner-to-local-actor boundary and reviewed proposal execution.
+//! Exercises the cloud-developer-to-local-tester boundary and reviewed proposal execution.
 
 use anyhow::Result;
 use codex_core::TurnInputRequest;
@@ -183,15 +183,22 @@ async fn reviewed_actor_proposals_execute_through_normal_tools() -> Result<()> {
         actor_tool["parameters"]["properties"]["failure_feedback"]["anyOf"],
         json!([{ "type": "string" }, { "type": "null" }])
     );
-    let planner_guidance = cloud_requests[0].message_input_texts("developer");
-    assert!(planner_guidance.iter().any(|text| {
-        text.contains("<local_actor_planner>")
-            && text.contains("especially lint fixes, isolated repairs")
-            && text.contains("Send only structured JSON arguments through `local_actor`")
-            && text.contains("structured add or exact-replacement edits")
-            && text.contains("After three unsuccessful local iterations")
-            && text.contains("hand that assignment back to the actor")
-            && text.contains("do not switch to cloud-authored implementation")
+    assert_eq!(
+        actor_tool["parameters"]["properties"]["kind"]["enum"],
+        json!(["unit_test", "e2e_test", "debug", "monitor"])
+    );
+    let tester_guidance = cloud_requests[0].message_input_texts("developer");
+    assert!(tester_guidance.iter().any(|text| {
+        text.contains("<local_actor_tester>")
+            && text.contains("Act as the cloud developer and final reviewer")
+            && text.contains("write production code")
+            && text.contains("independent test/review assignment")
+            && text.contains("one narrowly bounded repair")
+            && text.contains("cloud_developer_handoff")
+            && text.contains("do not require clarification calls before cloud implementation")
+            && text.contains("delegate the phase gate to the actor as a monitor task")
+            && text.contains("Unchanged running state is expected")
+            && text.contains("requires source changes")
     }));
     assert!(
         cloud_requests[1]
@@ -247,7 +254,7 @@ async fn reviewed_actor_proposals_execute_through_normal_tools() -> Result<()> {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn stale_structured_edit_returns_retryable_feedback() -> Result<()> {
+async fn stale_structured_test_edit_returns_retryable_feedback() -> Result<()> {
     skip_if_no_network!(Ok(()));
 
     let cloud = responses::start_mock_server().await;
@@ -255,18 +262,18 @@ async fn stale_structured_edit_returns_retryable_feedback() -> Result<()> {
     let assignment = json!({
         "schema_version": 2,
         "task_id": "stale-edit",
-        "kind": "implementation",
-        "objective": "Rename the parser helper",
-        "allowed_paths": ["src/parser.rs"],
+        "kind": "unit_test",
+        "objective": "Update the parser test helper",
+        "allowed_paths": ["tests/parser.rs"],
         "allowed_tools": ["apply_patch"],
         "tool_call_map": [{
-            "operation": "rename_helper",
+            "operation": "update_test_helper",
             "tool": "apply_patch",
-            "argument_template": {"path": "src/parser.rs"}
+            "argument_template": {"path": "tests/parser.rs"}
         }],
-        "acceptance_criteria": ["the helper is renamed"],
+        "acceptance_criteria": ["the test helper is updated"],
         "context_files": [{
-            "path": "src/parser.rs",
+            "path": "tests/parser.rs",
             "content": "fn old() {}\n",
             "truncated": false
         }],
@@ -277,7 +284,7 @@ async fn stale_structured_edit_returns_retryable_feedback() -> Result<()> {
         "task_id": "stale-edit",
         "proposed_edits": [{
             "kind": "replace",
-            "path": "src/parser.rs",
+            "path": "tests/parser.rs",
             "context_sha256": "stale",
             "old_text": "fn old() {}",
             "new_text": "fn new() {}"
@@ -321,7 +328,7 @@ async fn stale_structured_edit_returns_retryable_feedback() -> Result<()> {
         .await?;
     test.codex
         .start_or_steer_turn(TurnInputRequest::user_input(vec![UserInput::Text {
-            text: "Delegate a bounded parser rename.".into(),
+            text: "Delegate a bounded parser test update.".into(),
             text_elements: Vec::new(),
         }]))
         .await?;
@@ -347,7 +354,7 @@ async fn stale_structured_edit_returns_retryable_feedback() -> Result<()> {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn third_failed_actor_attempt_survives_resume_and_returns_task_to_cloud() -> Result<()> {
+async fn failed_actor_repair_survives_resume_and_returns_task_to_cloud_developer() -> Result<()> {
     skip_if_no_network!(Ok(()));
 
     let cloud = responses::start_mock_server().await;
@@ -377,15 +384,13 @@ async fn third_failed_actor_attempt_survives_resume_and_returns_task_to_cloud() 
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({
             "choices": [{"message": {"content": actor_result.to_string()}}]
         })))
-        .expect(3)
+        .expect(2)
         .mount(&actor)
         .await;
     let mut second = assignment.clone();
     second["failure_feedback"] = json!("compile failed");
     let mut third = assignment.clone();
     third["failure_feedback"] = json!("unit test failed");
-    let mut fourth = assignment.clone();
-    fourth["failure_feedback"] = json!("E2E test failed");
     let sequence = vec![
         responses::sse(vec![
             responses::ev_response_created("resp-0"),
@@ -406,11 +411,6 @@ async fn third_failed_actor_attempt_survives_resume_and_returns_task_to_cloud() 
             responses::ev_response_created("resp-2"),
             responses::ev_function_call("actor-2", "local_actor", &third.to_string()),
             responses::ev_completed("resp-2"),
-        ]),
-        responses::sse(vec![
-            responses::ev_response_created("resp-3"),
-            responses::ev_function_call("actor-3", "local_actor", &fourth.to_string()),
-            responses::ev_completed("resp-3"),
         ]),
         responses::sse(vec![
             responses::ev_response_created("final"),
@@ -457,22 +457,22 @@ async fn third_failed_actor_attempt_survives_resume_and_returns_task_to_cloud() 
     .await;
 
     let actor_requests = actor.received_requests().await.unwrap_or_default();
-    assert_eq!(actor_requests.len(), 3);
-    let retry_body: serde_json::Value = actor_requests[2].body_json()?;
+    assert_eq!(actor_requests.len(), 2);
+    let retry_body: serde_json::Value = actor_requests[1].body_json()?;
     let retry_user_message: serde_json::Value =
         serde_json::from_str(retry_body["messages"][1]["content"].as_str().unwrap())?;
     assert_eq!(
         retry_user_message["prior_failed_attempts"],
-        json!(["compile failed", "unit test failed"])
+        json!(["compile failed"])
     );
     let cloud_requests = cloud_responses.requests();
-    assert_eq!(cloud_requests.len(), 6);
-    let escalation = cloud_requests[5].function_call_output("actor-3");
+    assert_eq!(cloud_requests.len(), 5);
+    let escalation = cloud_requests[4].function_call_output("actor-2");
     let escalation_text = escalation.to_string();
     assert!(escalation_text.contains("escalate"));
-    assert!(escalation_text.contains("cloud_replan_then_local_actor"));
+    assert!(escalation_text.contains("cloud_developer_handoff"));
     assert!(escalation_text.contains("Fix the original parser failure"));
-    assert!(escalation_text.contains("E2E test failed"));
+    assert!(escalation_text.contains("unit test failed"));
     Ok(())
 }
 
@@ -491,7 +491,7 @@ async fn unavailable_local_actor_returns_original_task_to_cloud() -> Result<()> 
     let assignment = json!({
         "schema_version": 2,
         "task_id": "unavailable-task",
-        "kind": "implementation",
+        "kind": "debug",
         "objective": "Fix the original build failure",
         "allowed_paths": ["src/main.rs"],
         "allowed_tools": ["apply_patch"],
@@ -530,7 +530,7 @@ async fn unavailable_local_actor_returns_original_task_to_cloud() -> Result<()> 
         .await?;
     test.codex
         .start_or_steer_turn(TurnInputRequest::user_input(vec![UserInput::Text {
-            text: "Delegate a local implementation task.".into(),
+            text: "Delegate a local debugging task.".into(),
             text_elements: Vec::new(),
         }]))
         .await?;

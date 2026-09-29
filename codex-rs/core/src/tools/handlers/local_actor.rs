@@ -1,5 +1,5 @@
-//! Read-only bridge from the cloud planner to the configured local actor.
-//! Actor proposals are returned to the planner; this tool never applies or executes them.
+//! Read-only bridge from the cloud developer to the configured local tester.
+//! Tester proposals are returned to the developer; this tool never applies or executes them.
 
 use crate::function_tool::FunctionCallError;
 use crate::tools::context::FunctionToolOutput;
@@ -92,7 +92,7 @@ impl ToolExecutor<ToolInvocation> for LocalActorHandler {
         );
         ToolSpec::Function(ResponsesApiTool {
             name: TOOL_NAME.to_string(),
-            description: "Delegate one bounded implementation, unit-test, E2E-test, or debugging assignment to the configured local LM Studio actor. Supply bounded source context separately from the assignment and set failure_feedback to null on the first attempt. The actor returns structured edits; trusted Codex code validates and renders patches for cloud review. After a failed edit or test, call again with the unchanged assignment and context plus failure_feedback. The third failed attempt returns the original task for cloud replanning. This tool never applies patches or runs commands."
+            description: "Delegate one bounded test, review, monitoring, operations-coordination, or failure-diagnosis assignment to the configured local LM Studio actor after cloud implementation. Supply bounded source context separately and set failure_feedback to null on the first pass. The actor may propose additional tests, exact commands, phase transitions for explicitly authorized operations, and at most one narrowly bounded repair after concrete failure feedback. Trusted Codex validates and renders proposals for cloud review; it never applies patches or runs commands itself, and never polls sessions directly. A development phase or failed repair returns evidence to the cloud developer."
                 .to_string(),
             strict: true,
             defer_loading: None,
@@ -104,10 +104,10 @@ impl ToolExecutor<ToolInvocation> for LocalActorHandler {
                         "kind".to_string(),
                         JsonSchema::string_enum(
                             vec![
-                                json!("implementation"),
                                 json!("unit_test"),
                                 json!("e2e_test"),
                                 json!("debug"),
+                                json!("monitor"),
                             ],
                             None,
                         ),
@@ -248,7 +248,7 @@ impl ToolExecutor<ToolInvocation> for LocalActorHandler {
                             run.terminal = true;
                             let output = serde_json::to_string(&json!({
                                 "status": "escalate",
-                                "next_action": "cloud_replan_then_local_actor",
+                                "next_action": "cloud_developer_handoff",
                                 "original_assignment": escalation.original_assignment,
                                 "failures": escalation.failures,
                             }))

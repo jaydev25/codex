@@ -45,14 +45,18 @@ returns structured add or exact-replacement edits rather than raw patch syntax.
 Core verifies context hashes, unique matches, authorized paths, and tools before
 rendering a reviewed execution plan for normal `apply_patch` and `exec_command`
 operations; the cloud invokes those tools and verifies their evidence.
-Safe validation failures return precise retry feedback. Same-task retries are
-bounded to three local attempts, then the original task is returned to cloud.
-Completed call/output pairs rebuild the bounded attempt state from rollout
-history after process resume. Cloud diagnoses a three-attempt failure and
-hands a materially revised assignment with a new task ID back to the actor;
-it does not default to writing the implementation itself. The actor never
-receives direct execution authority. See [architecture.md](architecture.md) and
+Safe validation failures return precise feedback for one bounded repair.
+Completed call/output pairs rebuild that attempt state from rollout history
+after process resume. A failed repair returns the original assignment and
+evidence to the cloud developer, which owns implementation and baseline tests.
+The actor remains an independent tester and never receives direct execution
+authority. See [architecture.md](architecture.md) and
 [trackers.md](trackers.md) for the design and validation record.
+
+For explicit monitor/wait instructions, the actor evaluates bounded trusted
+runner output and owns the phase gate. It may advance user-authorized
+operational phases such as installation or restart after success; any phase
+requiring source changes returns evidence to the cloud developer.
 
 See [codex-local-knowledge.md](codex-local-knowledge.md) for the consolidated
 source map, invariants, operating workflow, and durable implementation lessons.

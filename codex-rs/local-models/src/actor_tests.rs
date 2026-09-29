@@ -19,7 +19,7 @@ fn assignment() -> ActorAssignment {
 }
 
 #[test]
-fn planner_assignment_is_directly_embedded_in_actor_system_message() {
+fn tester_assignment_is_directly_embedded_in_actor_system_message() {
     let assignment = assignment();
     let body = actor_request_body(
         &Url::parse("http://127.0.0.1:1234/v1").unwrap(),
@@ -32,6 +32,16 @@ fn planner_assignment_is_directly_embedded_in_actor_system_message() {
     let system_content = body["messages"][0]["content"].as_str().unwrap();
     let assignment_json = serde_json::to_string(&assignment).unwrap();
     assert!(system_content.ends_with(&assignment_json));
+    assert!(
+        system_content
+            .contains("independent local test, review, and operations-coordination actor")
+    );
+    assert!(system_content.contains("cloud developer owns architecture"));
+    assert!(system_content.contains("Do not propose production edits on the first attempt"));
+    assert!(system_content.contains("one narrowly bounded repair"));
+    assert!(system_content.contains("own that phase gate"));
+    assert!(system_content.contains("unchanged running state as normal"));
+    assert!(system_content.contains("Hand any phase requiring source changes"));
     assert!(system_content.contains("use add only for a new path absent from context_files"));
     assert!(system_content.contains("never use add for a path present in context_files"));
     assert!(system_content.contains("copy its supplied sha256 into context_sha256"));
@@ -84,31 +94,23 @@ fn assignment_rejects_unapproved_tool_and_remote_endpoint() {
 }
 
 #[test]
-fn third_failed_actor_attempt_escalates_original_assignment() {
+fn second_failed_actor_attempt_hands_original_assignment_to_cloud_developer() {
     let original = assignment();
     let mut tracker = ActorAttemptTracker::new(original.clone());
     assert_eq!(
         tracker.record_failure("compile failed"),
         ActorAttemptDecision::Retry { next_attempt: 2 }
     );
-    assert_eq!(
-        tracker.record_failure("unit test failed"),
-        ActorAttemptDecision::Retry { next_attempt: 3 }
-    );
     let expected = ActorAttemptDecision::Escalate(ActorEscalation {
         original_assignment: original,
-        failures: vec![
-            "compile failed".to_string(),
-            "unit test failed".to_string(),
-            "E2E test failed".to_string(),
-        ],
+        failures: vec!["compile failed".to_string(), "unit test failed".to_string()],
     });
-    assert_eq!(tracker.record_failure("E2E test failed"), expected);
-    assert_eq!(tracker.record_failure("ignored fourth failure"), expected);
+    assert_eq!(tracker.record_failure("unit test failed"), expected);
+    assert_eq!(tracker.record_failure("ignored third failure"), expected);
 }
 
 #[test]
-fn actor_operations_require_matching_planner_approved_tools() {
+fn actor_operations_require_matching_assignment_authorized_tools() {
     let mut result = ActorResult {
         schema_version: 2,
         task_id: "task-1".to_string(),
@@ -122,23 +124,69 @@ fn actor_operations_require_matching_planner_approved_tools() {
     };
     let assignment = assignment();
     assert!(
-        validate_actor_result(&assignment, &[], &result)
+        validate_actor_result(&assignment, &[], &result, ActorReviewPhase::Initial)
             .unwrap_err()
             .to_string()
             .contains("exec_command")
     );
 
     result.test_commands.clear();
-    assert!(validate_actor_result(&assignment, &[], &result).is_ok());
+    assert!(validate_actor_result(&assignment, &[], &result, ActorReviewPhase::Initial).is_ok());
 
     let mut no_patch_access = assignment;
     no_patch_access.allowed_tools = vec!["exec_command".to_string()];
     no_patch_access.tool_call_map[0].tool = "exec_command".to_string();
     assert!(
-        validate_actor_result(&no_patch_access, &[], &result)
+        validate_actor_result(&no_patch_access, &[], &result, ActorReviewPhase::Initial,)
             .unwrap_err()
             .to_string()
             .contains("apply_patch")
+    );
+}
+
+#[test]
+fn debug_task_edits_require_failure_evidence() {
+    let mut debug_assignment = assignment();
+    debug_assignment.kind = ActorTaskKind::Debug;
+    let result = ActorResult {
+        schema_version: 2,
+        task_id: "task-1".to_string(),
+        proposed_edits: vec![ActorEdit::Add {
+            path: "src/parser.rs".to_string(),
+            content: "test\n".to_string(),
+        }],
+        test_commands: Vec::new(),
+        diagnostics: Vec::new(),
+        needs_escalation: false,
+    };
+
+    let error = validate_actor_result(&debug_assignment, &[], &result, ActorReviewPhase::Initial)
+        .unwrap_err();
+    assert!(error.to_string().contains("after failure evidence"));
+    assert!(
+        validate_actor_result(&debug_assignment, &[], &result, ActorReviewPhase::Repair,).is_ok()
+    );
+}
+
+#[test]
+fn monitor_task_never_proposes_edits() {
+    let mut monitor_assignment = assignment();
+    monitor_assignment.kind = ActorTaskKind::Monitor;
+    let result = ActorResult {
+        schema_version: 2,
+        task_id: "task-1".to_string(),
+        proposed_edits: vec![ActorEdit::Add {
+            path: "src/parser.rs".to_string(),
+            content: "test\n".to_string(),
+        }],
+        test_commands: Vec::new(),
+        diagnostics: Vec::new(),
+        needs_escalation: false,
+    };
+
+    assert!(
+        validate_actor_result(&monitor_assignment, &[], &result, ActorReviewPhase::Repair,)
+            .is_err()
     );
 }
 
@@ -157,7 +205,13 @@ fn add_rejects_a_path_already_supplied_as_context() {
         needs_escalation: false,
     };
 
-    let error = validate_actor_result(&assignment(), &[context], &result).unwrap_err();
+    let error = validate_actor_result(
+        &assignment(),
+        &[context],
+        &result,
+        ActorReviewPhase::Initial,
+    )
+    .unwrap_err();
     assert!(error.to_string().contains("use replace"));
 }
 
@@ -178,17 +232,30 @@ fn replacement_requires_current_complete_unique_context() {
         needs_escalation: false,
     };
 
-    assert!(validate_actor_result(&assignment(), std::slice::from_ref(&context), &result).is_ok());
+    assert!(
+        validate_actor_result(
+            &assignment(),
+            std::slice::from_ref(&context),
+            &result,
+            ActorReviewPhase::Initial,
+        )
+        .is_ok()
+    );
 
     let ActorEdit::Replace { context_sha256, .. } = &mut result.proposed_edits[0] else {
         panic!("expected replacement edit");
     };
     *context_sha256 = "stale".to_string();
     assert!(
-        validate_actor_result(&assignment(), &[context], &result)
-            .unwrap_err()
-            .to_string()
-            .contains("stale context hash")
+        validate_actor_result(
+            &assignment(),
+            &[context],
+            &result,
+            ActorReviewPhase::Initial,
+        )
+        .unwrap_err()
+        .to_string()
+        .contains("stale context hash")
     );
 }
 
@@ -236,7 +303,15 @@ fn excerpt_replacement_requires_current_unique_anchored_context() {
         needs_escalation: false,
     };
 
-    assert!(validate_actor_result(&assignment(), &[context], &result).is_ok());
+    assert!(
+        validate_actor_result(
+            &assignment(),
+            &[context],
+            &result,
+            ActorReviewPhase::Initial,
+        )
+        .is_ok()
+    );
 }
 
 fn context_file() -> ActorContextFile {

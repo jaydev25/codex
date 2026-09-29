@@ -1,10 +1,10 @@
 # System Architecture: Local GPU Agent Loop with Codex Orchestrator
 
 This document defines an asynchronous, multi-model agent system that uses
-the user-selected cloud Codex model as the authoritative planner and final
-reviewer, while models running on a local RTX 3090 24 GB GPU perform bounded
-implementation, test authoring, debugging, test-output analysis, log scanning,
-failure clustering, and issue extraction.
+the user-selected cloud Codex model as the authoritative developer and final
+reviewer, while models running on a local RTX 3090 24 GB GPU perform independent
+test review, additional test authoring, bounded repair, test-output analysis,
+log scanning, failure clustering, and issue extraction.
 
 The local execution model is not fixed. Users can discover, download, register,
 activate, and switch compatible models from Hugging Face or other supported
@@ -17,18 +17,16 @@ local sources without changing the orchestration workflow.
 ### 1.1 The Macro/Micro Split
 
 To minimize external API token consumption and control costs, the system
-separates planning from execution:
+separates authoritative development from independent local testing:
 
-- **Cloud Planner (user-selected Codex model, for example 5.6 Sol):** Owns
-  task decomposition, acceptance criteria, tool/actor-call mapping, safety
-  decisions, escalation after local failure, and final verification. For
-  delegated implementation work it emits only structured JSON orchestration
-  records, not line-by-line source code or script blocks. The selected cloud
-  model remains the authoritative decision maker.
+- **Cloud Developer (user-selected Codex model, for example 5.6 Sol):** Owns
+  task decomposition, architecture, production implementation, baseline tests,
+  safety decisions, repair after local handoff, and final verification.
 - **Local Actor (RTX 3090 24 GB):** Receives a validated structured assignment
   in its system prompt and bounded repository context as a lower-trust user
-  message. It proposes structured file edits, unit and end-to-end tests, and
-  bounded debugging/repair. It also handles
+  message after cloud implementation. It independently reviews behavior,
+  proposes additional unit and end-to-end tests and exact commands, and may
+  attempt one narrowly bounded evidence-backed repair. It also handles
   token-heavy evidence processing. It cannot alter acceptance criteria,
   grant itself permissions, or approve its own result.
 - **Model Manager:** Resolves a requested capability profile to an installed
@@ -37,36 +35,28 @@ separates planning from execution:
 
 ### 1.2 Multi-Model Token-Saving Loop
 
-1. **Plan in cloud:** The selected cloud model emits a schema-validated JSON
-   assignment with task ID, objective, allowed paths/tools, tool-call map,
-   acceptance criteria, and budgets. It does not emit implementation scripts.
-2. **Delegate to the local actor:** Codex serializes that exact validated
-   assignment into the local actor's system message, alongside fixed role and
-   trust rules. Repository text and tool output remain lower-trust user/tool
-   content. The actor writes code, unit tests, and end-to-end tests.
-3. **Execute and debug locally:** Codex runs actor-requested tools through
-   normal approval/sandbox controls. The actor analyzes test, lint, scanner,
-   and log results and may repair the same task up to three failed iterations.
-4. **Replan deterministically:** After the third unsuccessful actor repair,
-   or immediately on unavailable local inference, unsafe/unparseable output,
-   or an exhausted budget, Codex returns the original objective, assignment,
-   attempt history, bounded diagnostics, and artifact references to the
-   selected cloud planner. For three valid but unsuccessful attempts, the
-   planner diagnoses the failures and delegates a materially revised bounded
-   assignment with a new task ID back to the local actor. The actor may not
-   silently restart the unchanged assignment's counter.
-5. **Verify in cloud:** The planner reviews the patch and test evidence,
-   requests raw excerpts if needed, and accepts or revises the plan. It remains
-   planner and reviewer rather than becoming the implementation actor merely
-   because the first assignment failed. Local success is not self-approval.
+1. **Develop in cloud:** The selected cloud model inspects the repository,
+   implements the change, and writes baseline tests.
+2. **Delegate independent testing:** Codex sends the requirement, completed
+   diff or relevant source, approved test paths and commands, and acceptance
+   criteria to the local actor under fixed tester trust rules.
+3. **Execute through trusted tools:** Codex reviews actor-proposed additional
+   tests and commands, then invokes accepted operations through normal
+   approval and sandbox controls.
+4. **Repair once or hand back:** A concrete failure may receive one bounded
+   local repair attempt. A failed repair, unavailable inference, unsafe output,
+   or architectural uncertainty returns bounded evidence to the cloud
+   developer instead of starting another actor implementation loop.
+5. **Verify in cloud:** The developer reviews all test and patch evidence and
+   remains the final owner. Local success is not self-approval.
 
-### 1.3 Structured orchestration contract
+### 1.3 Structured tester contract
 
-The planner's machine-readable response is a versioned JSON object. Use a
+The cloud developer's tester assignment is a versioned JSON object. Use a
 strict response schema, not a prose-only prompt convention. Each assignment
 contains `task_id`, `kind`, `objective`, `allowed_paths`, `allowed_tools`,
 `tool_call_map`, `acceptance_criteria`, and `budgets`. `kind` distinguishes
-implementation, unit-test authoring, end-to-end-test authoring, and debugging.
+unit-test authoring, end-to-end-test authoring, debugging, and monitoring.
 The map contains logical operation names and tool/argument templates; it does
 not carry executable script bodies. Reject unknown fields, invalid tools,
 out-of-scope paths, and oversized strings before any actor or tool call.
@@ -83,22 +73,25 @@ authority just because its endpoint is on loopback.
 
 An unsuccessful iteration means a failed acceptance test, invalid edit,
 invalid actor response, or unresolved diagnostic. Safe schema, stale-context,
-and ambiguous-match failures return bounded retry feedback; unauthorized paths
-or tools remain terminal. Count attempts per original
-`task_id`, persist the count in the run record, and cap at three. The cloud
-handoff includes all three attempts but bounds raw log content by artifact
-references and requested excerpts. A new cloud assignment may start a new
-counter only when the planner explicitly changes the objective or scope.
+and ambiguous-match failures return bounded feedback; unauthorized paths or
+tools remain terminal. Persist failures per original `task_id`. The initial
+tester pass may be followed by one bounded repair; the next failure returns the
+original assignment and bounded evidence to the cloud developer.
 
-The source tree exposes the actor through a strict structured function schema
+The source tree exposes the tester through a strict structured function schema
 when its loopback backend is configured. Actor results are validated against
-the immutable planner assignment and converted into a cloud-reviewed execution
+the immutable cloud-authored assignment and converted into a cloud-reviewed execution
 plan whose entries run through the normal permission-aware tools. Completed
 attempts are recovered from rollout call/output pairs after process resume,
-and the unchanged original assignment returns to cloud after three failures.
-The structured handoff directs cloud to replan and delegate a materially
-revised assignment with a new task ID back to the actor. The local model never
-applies patches or runs tests directly.
+and a failed repair returns the unchanged original assignment through
+`cloud_developer_handoff`. The local model never applies patches, polls
+sessions, or runs tests directly.
+
+For an explicit monitor/wait request, the actor owns the phase gate while the
+trusted coordinator performs polling and authorized operations. A still-running
+build is normal state. The actor may advance an already authorized operational
+phase such as install or restart after success; source-changing follow-up work
+returns to the cloud developer.
 
 ---
 
@@ -345,7 +338,7 @@ independent network services.
 ```text
     +----------------------------------------+
     |           Codex Orchestrator           |
-    |          (High-Level Planner)          |
+    |     (Cloud Developer/Final Reviewer)   |
     +-------------------+--------------------+
                         | Schema-validated blueprint
                         v
@@ -362,10 +355,10 @@ independent network services.
                | OpenAI-compatible inference
                v
     +----------+-----------------------------+
-    |          Local Micro-Agent             |
-    |       (Patch Generation/Critic)        |
+    |          Local Test Actor              |
+    |    (Tests/Review/Failure Analysis)     |
     +-------------------+--------------------+
-                        | Candidate patch
+                        | Reviewed test/repair proposal
                         v
     +-------------------+--------------------+
     |   Isolated Worktree and Sandbox        |
@@ -429,9 +422,8 @@ independent network services.
   lint, timeout, sandbox/policy, infrastructure, or architectural failures.
 - Sends large diagnostic artifacts to a local analyst and keeps raw artifacts
   addressable by stable IDs.
-- Returns compact evidence to the local actor for at most three repair
-  iterations. The cloud planner may request raw excerpts and takes over the
-  original problem after the third unsuccessful actor iteration.
+- Returns compact evidence to the local actor for at most one bounded repair.
+  The cloud developer takes over after that repair fails.
 - Bypasses or rejects local analysis when output is small, evidence references
   are invalid, confidence is below policy, or the local backend is unhealthy.
 
@@ -443,29 +435,29 @@ independent network services.
 [Start]
    |
    v
-[Cloud planner emits validated JSON assignment and tool-call map]
+[Cloud developer implements production code and baseline tests]
    |
    v
-[Validate scope and send assignment in local actor system prompt]
+[Send bounded test/review or monitor assignment to local actor]
    |
    v
-[Local actor proposes structured edits and unit/E2E tests]
+[Local actor proposes additional tests, commands, or a phase decision]
    |
    v
-[Coordinator validates context, renders patches, and runs approved tests]
+[Coordinator validates proposals and runs approved trusted operations]
    |
    v
-[Local actor diagnoses failure and repairs]
-   | failed attempt count < 3?       | pass
-   +---- yes ----> [Retry bounded local task] ----+
+[Local actor diagnoses one concrete failure]
+   | bounded repair is safe?          | pass
+   +---- yes ----> [One local repair attempt] ----+
    |                                              |
    +<--------------------------------------------+
-   | 3 failures, unsafe output, or backend unavailable
+   | repair failed, development needed, unsafe output, or backend unavailable
    v
-[Cloud planner receives original task and bounded attempt report]
+[Cloud developer receives original task and bounded evidence]
    |
    v
-[Cloud planner solves or replans; final verification]
+[Cloud developer repairs and performs final verification]
    v
 [Next task or complete]
 ```
@@ -513,10 +505,12 @@ names.
 ### 5.2 Local Actor System Message
 
 ```text
-You are the local implementation and test actor. Return only structured JSON.
-Do not expand the allowed paths, tools, or acceptance criteria. Propose
-structured add or exact-replacement edits and validation commands; trusted
-Codex code validates context and renders patches under existing policy.
+You are the independent local test, review, and operations-coordination actor.
+The cloud developer owns production code and baseline tests. Return only
+structured JSON. Do not expand the allowed paths, tools, acceptance criteria,
+or user authority. Propose additional tests, validation commands, monitor phase
+decisions, or one bounded evidence-backed repair; trusted Codex code validates
+context and runs accepted operations under existing policy.
 Assignment JSON:
 {{validated_actor_assignment_json}}
 ```
@@ -533,13 +527,13 @@ approved by the coordinator's policy layer.
   "run_id": "run-id",
   "task_id": "task-1",
   "status": "local_repairs_exhausted",
-  "attempts": 3,
+  "attempts": 2,
   "failure_class": "test",
   "diagnostic_summary": "Bounded failure explanation",
   "changed_paths": ["path/to/target.rs"],
   "validation_command": "targeted test command",
   "last_exit_code": 1,
-  "requested_action": "revise_plan"
+  "requested_action": "cloud_developer_handoff"
 }
 ```
 

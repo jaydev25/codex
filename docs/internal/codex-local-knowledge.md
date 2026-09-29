@@ -11,11 +11,12 @@ Actor reliability failures are recorded separately in the append-only
 ## Purpose and product boundary
 
 `codex-local` augments Codex with local inference while keeping the selected
-cloud Codex model responsible for planning, safety decisions, diagnosis, and
-final review. The local model is an untrusted bounded worker. It may analyze
-large command output or propose implementation and test work, but it never
-receives ambient filesystem or shell authority and never approves its own
-result.
+cloud Codex model responsible for architecture, production implementation,
+baseline tests, safety decisions, repair ownership, and final review. The local
+model is an untrusted bounded tester. It may analyze large command output,
+propose additional tests and focused commands, coordinate explicit monitor
+phase gates, and attempt one evidence-backed repair, but it never receives
+ambient filesystem or shell authority and never approves its own result.
 
 The initial hardware target is one NVIDIA RTX 3090 with 24 GiB VRAM. The
 validated local actor is Qwen 30B through LM Studio at a 65,536-token context.
@@ -30,7 +31,7 @@ left no safe operating headroom.
 | Cloud-to-local actor request and response contract | `codex-rs/local-models/src/actor.rs` |
 | Core `local_actor` tool, retry state, proposal validation, and execution-plan handoff | `codex-rs/core/src/tools/handlers/local_actor.rs` |
 | Trusted structured-edit validation and patch rendering | `codex-rs/core/src/tools/handlers/local_actor_edits.rs` |
-| Cloud planner guidance injected into model context | `codex-rs/core/src/context/local_actor_planner.rs` |
+| Cloud developer/local tester guidance injected into model context | `codex-rs/core/src/context/local_actor_tester.rs` |
 | Actor integration and resume tests | `codex-rs/core/tests/suite/local_actor.rs` |
 | TUI session usage baseline, footer HUD, and `/status` reporting | `codex-rs/tui/src/chatwidget/` and `codex-rs/tui/src/status/` |
 | Local development installer | `scripts/install/install-local-dev.ps1` |
@@ -49,28 +50,32 @@ left no safe operating headroom.
 4. Large deterministic command output can be stored locally and summarized by
    a loopback-only OpenAI-compatible analyst. Invalid analysis always falls
    back to the original raw evidence.
-5. The cloud planner can invoke the strict `local_actor` function with a
-   versioned assignment containing an objective, allowed paths and tools,
-   operation mappings, and acceptance criteria.
+5. The cloud developer writes production code and baseline tests, then can
+   invoke the strict `local_actor` function with a bounded test/review
+   assignment containing an objective, allowed paths and tools, operation
+   mappings, and acceptance criteria.
 6. The actor receives that assignment in its system message and bounded source
-   context in a separate lower-trust user message. It returns structured add or
-   exact-replacement edits rather than patch grammar. Trusted Codex code checks
-   context hashes and unique matches, renders patches, and returns the plan for
-   cloud review and normal permission-aware execution.
-7. Completed failures are reconstructed from rollout history. Three failed
-   attempts return the original assignment and bounded failure summaries to
-   the cloud for a materially revised task with a new ID. Safe edit validation
-   failures are retryable; unauthorized operations and transport failures
-   escalate immediately.
-8. The Windows development installer builds and hash-verifies `codex-local.exe`
+   context in a separate lower-trust user message. It proposes additional
+   tests, exact commands, diagnostics, or one narrow evidence-backed repair.
+   Trusted Codex code checks context hashes and unique matches, renders any
+   proposal, and returns the plan for cloud review and permission-aware
+   execution.
+7. Completed failures are reconstructed from rollout history. One failed test
+   may receive one bounded actor repair attempt; a failed repair returns the
+   original assignment and bounded evidence to the cloud developer. Unsafe
+   operations and transport failures escalate immediately.
+8. Explicit monitor assignments let the actor evaluate trusted polling output
+   and coordinate already-authorized build, test, install, or restart phases.
+   Development follow-ups return to the cloud developer.
+9. The Windows development installer builds and hash-verifies `codex-local.exe`
    and `codex-code-mode-host.exe`, handles the required V8 artifact, and updates
    user PATH idempotently.
 
 ## Trust and safety invariants
 
 - Local endpoints must be HTTP(S) loopback addresses.
-- Planner assignments and actor results are strict, bounded schemas.
-- Actor edits may touch only planner-authorized paths. Replacement edits require
+- Tester assignments and actor results are strict, bounded schemas.
+- Actor edits may touch only assignment-authorized paths. Replacement edits require
   complete source context, the current context hash, and old text that occurs
   exactly once. Trusted core code renders and reparses the final patch.
 - Actor-proposed commands are data until the cloud reviews and invokes the

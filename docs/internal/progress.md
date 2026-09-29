@@ -15,6 +15,27 @@
 - Local actor failures: [local-actor-failures.md](local-actor-failures.md)
 - Work, risks, and decisions: [trackers.md](trackers.md)
 
+## 2026-09-28 — Cloud developer and local tester roles
+
+### Outcome
+
+- Made the cloud model responsible for architecture, production implementation,
+  baseline tests, repairs after handoff, and final review.
+- Recast the local actor as an independent tester, reviewer, failure analyst,
+  and operations coordinator. It may propose additional focused tests and one
+  bounded evidence-backed repair through trusted tools.
+- Added explicit monitor phase gates for user-directed build/test/install/
+  restart sequences. A still-running operation is normal state; development
+  follow-ups return to the cloud developer.
+- Replaced the three-failure implementation loop with one repair attempt and a
+  `cloud_developer_handoff` after the next failure.
+
+### Validation
+
+- `just test -p codex-local-models actor` — 15 focused tests passed.
+- `just test -p codex-core local_actor` — 10 focused tests passed; 4,031 skipped.
+- No binary build or installation is part of this change.
+
 ## 2026-09-28 — Usage HUD reset time and actor-planner refinement
 
 ### Outcome
@@ -1072,3 +1093,23 @@ When a concrete change is selected:
 - This is not yet an installable completed actor workflow under the user's
   latest request. Build and install `codex-local` only after the remaining
   actor features are validated.
+## 2026-09-29 — Tester-only orchestration cleanup
+
+- Renamed the active cloud/local guidance and world-state section from planner
+  terminology to a cloud-developer/local-tester contract while recognizing the
+  legacy marker during resumed-session cleanup.
+- Removed the local actor's `implementation` task kind. Unit-test, E2E-test,
+  debug, and monitor assignments remain; monitor tasks cannot propose edits,
+  and debug tasks can propose a repair only after concrete failure evidence.
+- Replaced active planner-authorization wording with immutable cloud-authored
+  assignment authorization and updated the canonical architecture/source map.
+- The attempted independent tester review could not start because the active
+  process did not expose `local_actor`; rebuild/restart is required for live
+  tester validation of the new contract.
+
+### Validation
+
+- `just test -p codex-local-models actor` — 17 focused tests passed.
+- `just test -p codex-core local_actor` — final focused rerun passed all 12
+  tests; the first run's rejected production-edit fixture was corrected to a
+  tester-only stale-context case.

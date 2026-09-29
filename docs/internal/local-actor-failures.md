@@ -89,8 +89,22 @@ bounded. Use these classes:
 | 2026-09-28 | `arch020-cloud-saved-formatter-v2` | Structured edit validation, attempts 1-3 | `edit_validation` | An atomic formatter task still failed because truncated context forced repeatedly invalid excerpt anchors | Escalated and supplied the complete small file; the fresh formatter task succeeded on attempt 1 | no |
 | 2026-09-28 | `arch020-planner-first-attempt-rule-v1` | Focused test and retry review | `orchestration` | The original filter compiled core but matched zero tests; later retries bundled a stale edit reapplication with the replacement command | Split command-only validation and selected the discovered five-test `local_actor_edits::tests` filter | no |
 | 2026-09-28 | `arch020-planner-validation-contract-v1` | Clarification review | `orchestration` | Clarification attempt 1 proposed an execution command despite the diagnostics-only contract | Retry 2 returned diagnostics only; the fresh command-only task passed all five tests | no |
+| 2026-09-28 | `arch021-hud-layout-module-v2` | Structured edit validation, attempts 1-3 | `edit_validation` | Nonexistent add targets included as descriptive context were repeatedly classified as existing replacement targets | Escalated without applying edits; replanned to omit new paths from context | no |
+| 2026-09-28 | `arch021-hud-layout-module-v3` | Structured edit validation, attempts 1-3 | `edit_validation` | A mixed new-file add and existing module-declaration replacement was repeatedly emitted as add-existing-file | Escalated without applying edits; split add and replacement responsibilities | no |
+| 2026-09-28 | `arch021-hud-layout-addonly-v1` / `v2` | Cloud proposal review, six attempts | `orchestration` | Add-only proposals double-applied indentation, allowed zero-width wrapping, used unchecked casts, invented a license header, omitted imports, added unauthorized inline tests, and repeatedly missed explicit nonzero filtering | Accepted only the isolated pure width helper; rejected every unsafe or non-compiling proposal | no |
+| 2026-09-28 | `arch021-layout-functions-v1` / `arch021-module-decl-v1` | Structured edit validation, attempts 1-3 each | `edit_validation` | The actor repeatedly chose AddFile for an existing complete file and could not encode a trivial one-line module declaration as an exact replacement | Abandoned actor-owned production integration and used the evidence to redesign roles | no |
+| 2026-09-28 | `arch021-tester-role-review-v1` | Tester contract review | `orchestration` | Tester repeated the old three-attempt implementation behavior and missed the confirmed one-repair cloud-handoff contract | Cloud developer supplied baseline coverage for the missed behaviors | no |
+| 2026-09-28 | `arch021-tester-role-postreview-v1` | Focused test and handoff | `test` | First focused run found a stale prompt-string assertion; tester correctly diagnosed it but lacked edit authority and handed it to cloud | Cloud corrected the baseline test; 15 focused local-model tests passed | no |
+| 2026-09-28 | `arch021-tester-role-postreview-v1` | Focused core test and runtime retry audit | `test` | Core safety-description assertion required its compatibility phrase; the currently running old binary also made a third actor call because the new two-failure tracker was not loaded yet | Cloud restored the phrase; 10 focused core tests passed; rebuild/restart required before live retry behavior changes | no |
 
 ## Improvement signals
+
+The ARCH-021 multiline-HUD experiment showed that repeated prompt refinement
+could not make the actor reliably distinguish add, replace, and anchored
+replacement operations for trivial production edits. The workflow now assigns
+production implementation and baseline tests to the cloud developer. The local
+actor independently reviews and tests the completed change, with at most one
+bounded repair before evidence returns to cloud.
 
 Current evidence shows that multi-file new-module tasks amplify duplicate-add,
 module-layout, and copied-negative-wording failures. Prefer one file or one
@@ -103,3 +117,4 @@ ARCH-020's three resulting implementation tasks each succeeded on attempt 1.
 Split implementation from tests after repeated framing or layout confusion. Do
 not weaken path, authorization, schema, or patch-parser validation to improve
 apparent success.
+| 2026-09-29 | `arch022-tester-contract-review-v1` | Tester availability | `orchestration` | The active process did not expose a callable `local_actor` tool after cloud implementation, so the independent tester pass could not start | Recorded the unavailable tester pass; retained cloud-authored focused tests as evidence and require rebuild/restart before live tester validation | no |

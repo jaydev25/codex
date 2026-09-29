@@ -11,7 +11,7 @@ use crate::context::world_state::CompactPermissionsState;
 use crate::context::world_state::ContextWindowGuidanceState;
 use crate::context::world_state::EnvironmentsInstructionsState;
 use crate::context::world_state::EnvironmentsState;
-use crate::context::world_state::LocalActorPlannerState;
+use crate::context::world_state::LocalActorTesterState;
 use crate::context::world_state::ManagedDeveloperInstructionsState;
 use crate::context::world_state::ModelInstructionsState;
 use crate::context::world_state::MultiAgentModeState;
@@ -212,7 +212,7 @@ impl Session {
                     .features
                     .enabled(Feature::DeferredExecutor),
         ));
-        world_state.add_section(LocalActorPlannerState::new(
+        world_state.add_section(LocalActorTesterState::new(
             turn_context.config.local_analysis.enabled
                 && turn_context.config.local_analysis.backend_url.is_some()
                 && turn_context.config.local_analysis.backend_model.is_some(),
