@@ -15,6 +15,46 @@
 - Local actor failures: [local-actor-failures.md](local-actor-failures.md)
 - Work, risks, and decisions: [trackers.md](trackers.md)
 
+## 2026-09-29 — Windows elevated sandbox diagnostics (RISK-009)
+
+### Outcome
+
+- Diagnosed `CreateProcessWithLogonW failed: 2` in the Windows elevated sandbox
+  runner spawn. Error 2 is `ERROR_FILE_NOT_FOUND`, not a path-formatting issue.
+  The `codex-command-runner.exe` helper binary was never built or placed on the
+  expected path (`target/release/codex-command-runner.exe` in development).
+- Added a pre-launch file-existence check in
+  `windows-sandbox-rs/src/elevated/runner_client.rs`. When the resolved runner
+  path does not exist and no registered runner alias is present, the error now
+  names the attempted path, the expected location, and the corrective command
+  (`cargo build --release -p codex-windows-sandbox`) instead of surfacing only
+  the opaque Win32 error code.
+- Validation is skipped when a runner alias is registered (the OS resolves the
+  binary by name); otherwise the resolved absolute path must exist before the
+  `CreateProcessWithLogonW` call is attempted.
+
+### Validation
+
+- `cargo check -p codex-windows-sandbox` — compiled cleanly, no warnings.
+- `cargo test -p codex-windows-sandbox --lib` — 240 passed, 4 failed, 5 ignored.
+  All 4 failures are integration tests that require the `codex-command-runner.exe`
+  helper binary (not yet built). The new diagnostic message is confirmed working
+  in the failure output. The 3 non-elevated failures are cascading mutex-poison
+  from the first failure.
+  - `elevated::runner_client::tests::refreshable_sandbox_creds_error_recognizes_credential_and_child_start_failures` — ok
+  - `unified_exec::backends::elevated::tests::retry_uses_original_unified_exec_request_and_stops_after_second_failure` — ok
+- End-to-end elevated sandbox launch not yet verified; requires the helper
+  binary to be built (`cargo build --release -p codex-windows-sandbox`) and
+  present on the expected path.
+
+### Decisions, risks, and follow-up
+
+- `RISK-009` moved from Open to Validate. Root cause is confirmed (missing
+  helper binary, not path formatting or privilege issue). The actionable error
+  message prevents future silent failure when the binary is absent.
+- Follow-up: build the sandbox helper in release mode and re-run the elevated
+  sandbox path to confirm `CreateProcessWithLogonW` succeeds.
+
 ## 2026-09-28 — Usage HUD reset time and actor-planner refinement
 
 ### Outcome

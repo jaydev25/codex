@@ -369,6 +369,19 @@ pub(crate) fn spawn_runner_transport(
         .to_str()
         .map(str::to_owned)
         .unwrap_or_else(|| "codex-command-runner.exe".to_string());
+    // Validate the runner binary exists before launching so a missing helper
+    // produces an actionable error instead of a bare
+    // CreateProcessWithLogonW failure (e.g. ERROR_FILE_NOT_FOUND / error 2).
+    if registered_alias.is_none() && !Path::new(&runner_cmdline).is_file() {
+        let codex_exe = std::env::current_exe()
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|_| "<unknown>".to_string());
+        return Err(anyhow::anyhow!(
+            "elevated sandbox runner not found: {runner_cmdline}\n\
+             expected codex-command-runner.exe next to the codex executable ({codex_exe}).\n\
+             likely fix: build the sandbox helpers with `cargo build --release -p codex-windows-sandbox`"
+        ));
+    }
     let runner_full_cmd = format!(
         "{} {} {}",
         quote_windows_arg(&runner_cmdline),

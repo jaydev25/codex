@@ -1,0 +1,13 @@
+    Checking codex-http-client v0.0.0 (C:\Repos\AI\codex\codex-rs\http-client)
+    Checking rama-http-backend v0.3.0-alpha.4
+    Checking opentelemetry-proto v0.31.0
+    Checking opentelemetry-http v0.31.0
+    Checking codex-network-proxy v0.0.0 (C:\Repos\AI\codex\codex-rs\network-proxy)
+    Checking codex-websocket-client v0.0.0 (C:\Repos\AI\codex\codex-rs\websocket-client)
+    Checking codex-client v0.0.0 (C:\Repos\AI\codex\codex-rs\codex-client)
+    Checking opentelemetry-otlp v0.31.0
+    Checking codex-protocol v0.0.0 (C:\Repos\AI\codex\codex-rs\protocol)
+    Checking codex-api v0.0.0 (C:\Repos\AI\codex\codex-rs\codex-api)
+    Checking codex-otel v0.0.0 (C:\Repos\AI\codex\codex-rs\otel)
+    Checking codex-windows-sandbox v0.0.0 (C:\Repos\AI\codex\codex-rs\windows-sandbox-rs)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 42.26s

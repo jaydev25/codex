@@ -1,0 +1,514 @@
+   Compiling windows-sys v0.61.2
+   Compiling lock_api v0.4.14
+   Compiling getrandom v0.3.4
+   Compiling subtle v2.6.1
+   Compiling tracing v0.1.44
+   Compiling serde_json v1.0.149
+   Compiling tinystr v0.8.3
+   Compiling futures-executor v0.3.34
+   Compiling either v1.15.0
+   Compiling toml_edit v0.23.10+spec-1.0.0
+   Compiling num-integer v0.1.46
+   Compiling getrandom v0.4.2
+   Compiling jobserver v0.1.34
+   Compiling parking_lot v0.12.5
+   Compiling digest v0.10.7
+   Compiling rand_core v0.9.5
+   Compiling icu_locale_core v2.2.0
+   Compiling spin v0.9.8
+   Compiling itertools v0.14.0
+   Compiling futures v0.3.34
+   Compiling cc v1.2.55
+   Compiling rand_chacha v0.9.0
+   Compiling uuid v1.20.0
+   Compiling sha2 v0.10.9
+   Compiling ahash v0.8.12
+   Compiling sha1 v0.10.6
+   Compiling rand v0.9.3
+   Compiling flume v0.12.0
+   Compiling num-bigint v0.4.6
+   Compiling proc-macro-crate v3.4.0
+   Compiling cmake v0.1.57
+   Compiling opentelemetry v0.31.0
+   Compiling webpki-roots v1.0.5
+   Compiling icu_provider v2.2.0
+   Compiling schemars v0.8.22
+   Compiling regex-automata v0.4.13
+   Compiling ts-rs-macros v11.1.0
+   Compiling rand v0.10.1
+   Compiling icu_normalizer v2.2.0
+   Compiling icu_properties v2.2.0
+   Compiling rama-macros v0.3.0-alpha.4
+   Compiling moka v0.12.13
+   Compiling aws-lc-sys v0.45.0
+   Compiling ring v0.17.14
+   Compiling zstd-sys v2.0.16+zstd.1.5.7
+   Compiling blake3 v1.8.2
+   Compiling lock_free_hashtable v0.1.4
+   Compiling asn1-rs v0.7.1
+   Compiling idna_adapter v1.2.1
+   Compiling idna v1.1.0
+   Compiling heapless v0.7.17
+   Compiling regex v1.12.3
+   Compiling quickcheck v1.1.0
+   Compiling url v2.5.8
+   Compiling publicsuffix v2.3.0
+   Compiling ts-rs v11.1.0
+   Compiling cookie_store v0.22.1
+   Compiling arrayvec v0.7.6
+   Compiling allocative v0.3.6
+   Compiling sorted_vector_map v0.2.1
+   Compiling dashmap v6.1.0
+   Compiling postcard v1.1.3
+   Compiling Inflector v0.11.4
+   Compiling schemafy_core v0.5.2
+   Compiling static_interner v0.1.2
+   Compiling bstr v1.12.1
+   Compiling schemafy_lib v0.5.2
+   Compiling winapi v0.3.9
+   Compiling oid-registry v0.8.1
+   Compiling pagable v0.4.1
+   Compiling der-parser v10.0.0
+   Compiling windows-sys v0.59.0
+   Compiling lsp-types v0.97.0
+   Compiling yasna v0.6.0
+   Compiling display_container v0.9.0
+   Compiling schemafy v0.5.2
+   Compiling fd-lock v4.0.4
+   Compiling headers v0.4.1
+   Compiling png v0.18.0
+   Compiling starlark_map v0.14.2
+   Compiling debugserver-types v0.5.0
+   Compiling gix-validate v0.11.0
+   Compiling prost-derive v0.14.3
+   Compiling concurrent-queue v2.5.0
+   Compiling gix-path v0.11.2
+   Compiling image v0.25.9
+   Compiling event-listener v5.4.1
+   Compiling icu_locale v2.2.0
+   Compiling globset v0.4.18
+   Compiling rand_regex v0.18.1
+   Compiling codex-utils-string v0.0.0 (C:\Repos\AI\codex\codex-rs\utils\string)
+   Compiling event-listener-strategy v0.5.4
+   Compiling icu_decimal v2.2.0
+   Compiling gix-url v0.35.2
+   Compiling prost v0.14.3
+   Compiling codex-utils-redacted-string v0.0.0 (C:\Repos\AI\codex\codex-rs\utils\redacted-string)
+   Compiling strum v0.27.2
+   Compiling nix v0.28.0
+   Compiling async-channel v2.5.0
+   Compiling filedescriptor v0.8.3
+   Compiling winreg v0.10.1
+   Compiling serial2 v0.2.33
+   Compiling dirs-sys-next v0.1.2
+   Compiling rand v0.8.6
+   Compiling dirs-next v2.0.0
+   Compiling portable-pty v0.9.0
+   Compiling socket2 v0.6.3
+   Compiling mio v1.2.0
+   Compiling schannel v0.1.28
+   Compiling nu-ansi-term v0.50.3
+   Compiling dirs-sys v0.5.0
+   Compiling dirs v6.0.0
+   Compiling tokio v1.52.3
+   Compiling rustls-native-certs v0.8.3
+   Compiling native-tls v0.2.14
+   Compiling tracing-subscriber v0.3.22
+   Compiling codex-utils-absolute-path v0.0.0 (C:\Repos\AI\codex\codex-rs\utils\absolute-path)
+   Compiling zstd-safe v7.2.4
+   Compiling anstyle-wincon v3.0.11
+   Compiling anstyle-query v1.1.5
+   Compiling anstream v0.6.21
+   Compiling zstd v0.13.3
+   Compiling home v0.5.12
+   Compiling clap_builder v4.5.58
+   Compiling rustyline v14.0.0
+   Compiling codex-utils-home-dir v0.0.0 (C:\Repos\AI\codex\codex-rs\utils\home-dir)
+   Compiling codex-utils-path-uri v0.0.0 (C:\Repos\AI\codex\codex-rs\utils\path-uri)
+   Compiling tracing-opentelemetry v0.32.1
+   Compiling tempfile v3.27.0
+   Compiling codex-extension-items v0.0.0 (C:\Repos\AI\codex\codex-rs\ext\items)
+   Compiling opentelemetry-appender-tracing v0.31.1
+   Compiling os_info v3.14.0
+   Compiling tracing-appender v0.2.4
+   Compiling clap v4.5.58
+   Compiling tokio-util v0.7.18
+   Compiling tokio-graceful v0.2.2
+   Compiling rama-utils v0.3.0-alpha.4
+   Compiling tokio-stream v0.1.18
+   Compiling tokio-native-tls v0.3.1
+   Compiling h2 v0.4.16
+   Compiling tower v0.5.3
+   Compiling hickory-proto v0.25.2
+   Compiling rama-core v0.3.0-alpha.4
+   Compiling tokio-test v0.4.5
+   Compiling starlark_syntax v0.14.2
+   Compiling codex-utils-cache v0.0.0 (C:\Repos\AI\codex\codex-rs\utils\cache)
+   Compiling opentelemetry_sdk v0.31.0
+   Compiling codex-async-utils v0.0.0 (C:\Repos\AI\codex\codex-rs\async-utils)
+   Compiling codex-utils-image v0.0.0 (C:\Repos\AI\codex\codex-rs\utils\image)
+   Compiling codex-utils-pty v0.0.0 (C:\Repos\AI\codex\codex-rs\utils\pty)
+   Compiling tower-http v0.6.8
+   Compiling starlark v0.14.2
+   Compiling rama-http-types v0.3.0-alpha.4
+   Compiling hyper v1.8.1
+   Compiling hickory-resolver v0.25.2
+   Compiling hyper-util v0.1.20
+   Compiling rama-net v0.3.0-alpha.4
+   Compiling hyper-tls v0.6.0
+   Compiling hyper-timeout v0.5.2
+   Compiling rama-http-headers v0.3.0-alpha.4
+   Compiling rama-dns v0.3.0-alpha.4
+   Compiling rama-udp v0.3.0-alpha.4
+   Compiling rama-http v0.3.0-alpha.4
+   Compiling rama-tcp v0.3.0-alpha.4
+   Compiling rama-socks5 v0.3.0-alpha.4
+   Compiling rama-http-core v0.3.0-alpha.4
+   Compiling codex-execpolicy v0.0.0 (C:\Repos\AI\codex\codex-rs\execpolicy)
+   Compiling aws-lc-rs v1.18.1
+   Compiling rustls v0.23.45
+   Compiling rustls-webpki v0.103.15
+   Compiling x509-parser v0.18.1
+   Compiling rama-http-backend v0.3.0-alpha.4
+   Compiling rcgen v0.14.9
+   Compiling tokio-rustls v0.26.4
+   Compiling codex-utils-rustls-provider v0.0.0 (C:\Repos\AI\codex\codex-rs\utils\rustls-provider)
+   Compiling rustls-platform-verifier v0.7.0
+   Compiling tungstenite v0.27.0 (https://github.com/openai-oss-forks/tungstenite-rs?rev=4fffad30fe373adbdcffab9545e9e9bf4f2fc19f#4fffad30)
+   Compiling hyper-rustls v0.27.7
+   Compiling rama-tls-rustls v0.3.0-alpha.4
+   Compiling tonic v0.14.3
+   Compiling reqwest v0.12.28
+   Compiling codex-network-proxy v0.0.0 (C:\Repos\AI\codex\codex-rs\network-proxy)
+   Compiling tokio-tungstenite v0.28.0 (https://github.com/openai-oss-forks/tokio-tungstenite?rev=0e5b2d73aa18dd9f0a50ee9ff199d5aef7594186#0e5b2d73)
+   Compiling tonic-prost v0.14.3
+   Compiling opentelemetry-proto v0.31.0
+   Compiling codex-http-client v0.0.0 (C:\Repos\AI\codex\codex-rs\http-client)
+   Compiling opentelemetry-http v0.31.0
+   Compiling codex-websocket-client v0.0.0 (C:\Repos\AI\codex\codex-rs\websocket-client)
+   Compiling codex-client v0.0.0 (C:\Repos\AI\codex\codex-rs\codex-client)
+   Compiling opentelemetry-otlp v0.31.0
+   Compiling codex-protocol v0.0.0 (C:\Repos\AI\codex\codex-rs\protocol)
+   Compiling codex-api v0.0.0 (C:\Repos\AI\codex\codex-rs\codex-api)
+   Compiling codex-otel v0.0.0 (C:\Repos\AI\codex\codex-rs\otel)
+   Compiling codex-windows-sandbox v0.0.0 (C:\Repos\AI\codex\codex-rs\windows-sandbox-rs)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2m 31s
+     Running unittests src\lib.rs (target\debug\deps\codex_windows_sandbox-1566db14328bdab2.exe)
+
+running 249 tests
+test acl::tests::deny_ace_update_failure_is_an_error ... ok
+test acl::tests::deny_read_root_check_uses_the_open_handle ... ok
+test app_package::tests::only_exact_opt_in_requests_registered_core ... ok
+test app_package::tests::package_query_distinguishes_absence_from_failure_and_bounds_allocation ... ok
+test app_package::tests::package_query_validates_returned_length_termination_and_utf16 ... ok
+test audit::tests::deny_ace_failure_is_propagated_after_other_paths_are_attempted ... ok
+test acl::tests::existing_deny_ace_is_visible_without_write_dac ... ok
+test acl::tests::revoking_absent_sid_preserves_child_null_dacl ... ok
+test audit::tests::gathers_path_entries_by_list_separator ... ok
+test deny_read_acl::tests::plan_includes_existing_canonical_targets ... ok
+test allow::tests::includes_tmp_env_vars_when_requested ... ok
+test deny_read_acl::tests::plan_rejects_file_system_root ... ok
+test allow::tests::denies_codex_and_agents_inside_writable_root ... ok
+test deny_read_acl::tests::plan_preserves_missing_paths ... ok
+test allow::tests::skips_protected_subdirs_when_missing ... ok
+test allow::tests::uses_runtime_workspace_roots_for_workspace_root ... ok
+test deny_read_resolver::tests::configured_depth_caps_recursive_glob_scans ... ok
+test allow::tests::ignores_unix_slash_tmp_for_windows_allow_roots ... ok
+test allow::tests::denies_git_dir_inside_writable_root ... ok
+test cap::tests::equivalent_cwd_spellings_share_workspace_sid_key ... ok
+test deny_read_resolver::tests::bounded_globs_with_the_same_root_share_the_deepest_scan ... ok
+test allow::tests::denies_git_file_inside_writable_root ... ok
+test deny_read_resolver::tests::configured_depth_bounds_root_recursive_glob_scans ... ok
+test allow::tests::excludes_tmp_env_vars_when_requested ... ok
+test deny_read_resolver::tests::exact_missing_paths_are_preserved ... ok
+test allow::tests::includes_additional_writable_roots ... ok
+test deny_read_resolver::tests::recursive_and_bounded_globs_with_the_same_root_share_one_scan ... ok
+test deny_read_resolver::tests::glob_patterns_with_the_same_root_and_depth_share_one_scan ... ok
+test deny_read_resolver::tests::invalid_glob_patterns_fail_before_expansion ... ok
+test deny_read_resolver::tests::ripgrep_globs_normalize_windows_separators_and_unclosed_classes ... ok
+test deny_read_resolver::tests::root_recursive_globs_without_depth_fail_before_expansion ... ok
+test deny_read_resolver::tests::scan_depth_is_bounded_for_non_recursive_globs ... ok
+test deny_read_resolver::tests::scan_root_uses_literal_prefix_before_glob ... ok
+test cap::tests::write_roots_get_path_scoped_sids ... ok
+test deny_read_resolver::walker::tests::unexpected_io_errors_abort_the_snapshot ... ok
+test deny_read_resolver::tests::configured_depth_excludes_deeper_recursive_matches ... ok
+test desktop::tests::opening_missing_private_desktop_does_not_create_or_fall_back ... ok
+test desktop::tests::private_desktop_rejects_interactive_and_injected_names ... ok
+test deny_read_resolver::tests::relative_recursive_globs_without_depth_expand_existing_matches ... ok
+test deny_read_resolver::tests::recursive_globs_preserve_matching_empty_directories ... ok
+test elevated::ipc_framed::tests::error_payload_serializes_stage_and_windows_error_code ... ok
+test deny_read_resolver::tests::recursive_globs_include_hidden_and_ignored_matches ... ok
+test elevated::ipc_framed::tests::framed_round_trip ... ok
+test elevated::ipc_framed::tests::spawn_request_serializes_permission_profile ... ok
+test desktop::tests::shared_desktop_survives_launch_handles_and_concurrent_requests ... ok
+test elevated::runner_client::tests::refreshable_sandbox_creds_error_recognizes_credential_and_child_start_failures ... ok
+test elevated::runner_metrics::tests::command_results_distinguish_timeouts_transport_errors_and_nonzero_exits ... ok
+test desktop::tests::legacy_desktop_reuses_only_equivalent_permissions ... ok
+test deny_read_resolver::tests::project_recursive_globs_without_depth_expand_existing_matches ... ok
+test file_write::tests::fresh_output_cannot_be_written_or_replaced_while_held ... ok
+test deny_read_resolver::tests::non_recursive_globs_do_not_expand_nested_matches ... ok
+test helper_materialization::copy::tests::copy_from_source_if_needed_copies_missing_destination ... ok
+test file_write::tests::failed_replacement_does_not_truncate_target_or_leave_temporary_file ... ok
+test deny_read_resolver::tests::shared_scan_roots_preserve_matches_at_each_required_depth ... ok
+test file_write::tests::replaces_hard_link_without_writing_to_its_target ... ok
+test helper_materialization::tests::helper_bin_dir_is_under_sandbox_bin ... ok
+test helper_materialization::copy::tests::copy_from_source_if_needed_reuses_fresh_destination ... ok
+test helper_materialization::tests::helper_source_lookup_checks_resource_dir ... ok
+test helper_materialization::tests::helper_source_lookup_checks_package_resource_dir_for_bin_exe ... ok
+test helper_materialization::tests::helper_version_suffix_uses_cli_version_or_dev_build_metadata ... ok
+test helper_materialization::tests::helper_source_lookup_prefers_package_resource_dir_over_bin_resource_dir ... ok
+test deny_read_resolver::access_tests::native_walk_preserves_canonical_matches_through_directory_links_and_cycles ... ok
+test helper_materialization::tests::materialized_file_name_adds_suffix_before_extension ... ok
+test deny_read_resolver::tests::recursive_globs_rescan_for_new_matches ... ok
+test identity::tests::guardian_preserve_mode_does_not_churn_marker_with_empty_proxy_ports ... ok
+test helper_materialization::tests::registered_request_does_not_materialize_or_replace_a_missing_source ... ok
+test identity::tests::preserving_proxy_settings_uses_the_existing_marker ... ok
+test helper_materialization::tests::copy_runner_into_shared_bin_dir ... ok
+test helper_materialization::tests::helper_source_lookup_prefers_direct_sibling_over_resource_dir ... ok
+test logging::tests::current_log_file_path_for_codex_home_uses_sandbox_dir ... ok
+test logging::tests::log_file_path_for_utc_date_matches_rolling_appender_name ... ok
+test helper_materialization::tests::legacy_request_materializes_the_same_source ... ok
+test identity::tests::remove_sandbox_users_file_ignores_missing_file ... ok
+test identity::tests::remove_sandbox_users_file_deletes_existing_file ... ok
+test no_reparse_dir::tests::local_directory_path_accepts_drive_and_verbatim_drive_paths ... ok
+test no_reparse_dir::tests::local_directory_path_rejects_relative_network_parent_and_stream_paths ... ok
+test deny_read_resolver::tests::glob_patterns_expand_to_existing_matches ... ok
+test logging::tests::preview_does_not_panic_on_utf8_boundary ... ok
+test no_reparse_dir::tests::open_existing_does_not_create_missing_directory ... ok
+test no_reparse_dir::tests::creates_and_opens_plain_directory_leaf ... ok
+test path_normalization::tests::canonical_path_key_normalizes_case_and_separators ... ok
+test provisioning_client::refresh_retry::tests::accepts_only_response_pipe_disconnect_errors ... ok
+test logging::tests::log_note_writes_to_daily_rolling_log ... ok
+test helper_materialization::tests::helper_source_lookup_resolves_bin_junctions ... ok
+test provisioning_client::refresh_retry::tests::authentication_failure_cannot_write_or_replay_the_request ... ok
+test provisioning_client::refresh_retry::tests::explicit_replies_never_consume_a_restart ... ok
+test provisioning_client::refresh_retry::tests::disconnect_after_original_deadline_is_not_retried ... ok
+test provisioning_client::refresh_retry::tests::permits_two_response_disconnects_but_not_a_third ... ok
+test provisioning_client::tests::workload_identity_child ... ignored, child process for workload_identity_selects_helper_fallback_except_for_registered_core
+test resolved_permissions::tests::permission_profile_rejects_disabled_profiles ... ok
+test provisioning_client::refresh_retry::tests::timeout_permission_and_protocol_errors_do_not_consume_a_restart ... ok
+test resolved_permissions::tests::permission_profile_rejects_unrestricted_managed_filesystem ... ok
+test resolved_permissions::tests::elevated_filesystem_policy_requires_effective_root_read_access ... ok
+test resolved_permissions::tests::permission_profile_workspace_roots_expand_all_runtime_workspace_roots ... ok
+test resolved_permissions::tests::permission_profile_workspace_root_uses_runtime_workspace_roots ... ok
+test resolved_permissions::tests::token_mode_for_profile_without_writable_roots_uses_readonly_capability ... ok
+test resolved_permissions::tests::token_mode_rejects_full_disk_write_entries ... ok
+test runtime_ownership::tests::admission_accepts_package_family_casing ... ok
+test no_reparse_dir::tests::rejects_ancestor_directory_junction ... ok
+test runtime_ownership::tests::admission_rejects_other_owner_home_and_family ... ok
+test logging::tests::setup_log_releases_handles_without_path_fallback ... ok
+test runtime_ownership::tests::legacy_non_null_cleanup_journal_cannot_silently_drop_its_fence ... ok
+test runtime_ownership::tests::legacy_null_cleanup_alias_preserves_the_active_record ... ok
+test runtime_ownership::tests::metadata_root_history_survives_record_round_trip ... ok
+test runtime_ownership::tests::older_runtime_receipts_default_to_no_metadata_roots_or_cleanup_logon ... ok
+test resolved_permissions::tests::token_mode_for_profile_with_writable_roots_uses_write_capabilities ... ok
+test resolved_permissions::tests::permission_profile_workspace_write_uses_windows_temp_env_vars ... ok
+test runtime_ownership::tests::readiness_requires_a_receipt_for_the_current_package_version ... ok
+test runtime_ownership::tests::readiness_requires_both_distinct_account_receipts ... ok
+test runtime_ownership::tests::returned_owner_cannot_cancel_a_persisted_retirement_fence ... ok
+test runtime_ownership::tests::interrupted_cleanup_logon_blocks_admission_after_record_reload ... ok
+test runtime_ownership::tests::production_record_without_optional_core_or_desktop_fields_still_loads ... ok
+test runtime_ownership::tests::readiness_is_revoked_by_the_retirement_fence ... ok
+test no_reparse_dir::tests::rejects_final_directory_junction ... ok
+test service_identity::tests::service_routing_rejects_paths_and_malformed_families ... ok
+test runtime_ownership::tests::journal_round_trip_retains_desktop_ownership_and_retirement_fence ... ok
+test setup::tests::build_payload_deny_read_paths_preserves_explicit_paths ... ok
+test service_identity::tests::service_routing_accepts_package_families ... ok
+test sandbox_utils::tests::injects_safe_directory_for_git_directory ... ok
+test setup::tests::elevated_setup_payload_contains_no_caller_acl_roots ... ok
+test sandbox_utils::tests::injects_worktree_root_for_gitfile ... ok
+test setup::tests::expand_user_profile_root_for_replaces_profile_root_with_children ... ok
+test setup::tests::expanded_write_roots_still_drop_protected_codex_home ... ok
+test setup::tests::build_payload_roots_replaces_full_read_policy_when_read_override_is_provided ... ok
+test setup::tests::effective_write_roots_use_runtime_workspace_roots_for_workspace_root ... ok
+test deny_read_resolver::access_tests::protected_directory_does_not_discard_accessible_deny_matches ... ok
+test setup::tests::build_payload_roots_preserves_helper_roots_when_read_override_is_provided ... ok
+test identity::integration_tests::credential_setup_repairs_expired_accounts_once_and_reloads_credentials ... ok
+test desktop::tests::shared_desktop_reuses_only_equivalent_permissions ... ok
+test setup::tests::helper_read_roots_only_create_a_legacy_bin ... ok
+test setup::tests::identical_setup_requests_share_one_in_flight_run ... ok
+test setup::tests::loopback_proxy_url_parsing_rejects_non_loopback_and_zero_port ... ok
+test setup::tests::offline_proxy_settings_ignore_proxy_env_when_online_identity_selected ... ok
+test setup::tests::offline_proxy_settings_capture_proxy_ports_and_local_binding_for_offline_identity ... ok
+test setup::tests::loopback_proxy_url_parsing_supports_common_forms ... ok
+test setup::tests::provisioning_settings_preserve_all_inherited_proxy_ports ... ok
+test setup::tests::proxy_ports_from_env_dedupes_and_sorts ... ok
+test setup::tests::full_read_roots_preserve_legacy_platform_defaults ... ok
+test setup::tests::is_user_profile_root_exclusion_blocks_configured_children ... ok
+test setup::tests::registered_payload_preserves_explicit_bin_read_root ... ok
+test setup::tests::profile_read_roots_falls_back_to_profile_root_when_enumeration_fails ... ok
+test setup::tests::setup_completion_requires_ready_artifacts ... ok
+test setup::tests::report_helper_failure_ignores_setup_error_report_when_clear_failed ... ok
+test setup::tests::setup_marker_request_mismatch_reason_reports_offline_firewall_drift ... ok
+test setup::tests::setup_marker_request_mismatch_reason_ignores_proxy_drift_for_online_identity ... ok
+test setup::tests::payload_deny_write_paths_merge_explicit_and_protected_children ... ok
+test setup::tests::is_ssh_config_dependency_root_blocks_config_dependencies ... ok
+test setup::tests::profile_read_roots_excludes_configured_top_level_entries ... ok
+test setup::tests::gather_read_roots_includes_helper_bin_dir ... ok
+test setup::tests::setup_request_prefers_explicit_proxy_settings ... ok
+test setup::tests::setup_refresh_skips_profiles_without_managed_filesystem_permissions ... ok
+test setup::tests::setup_exe_lookup_checks_package_resource_dir_for_bin_exe ... ok
+test setup::tests::setup_refresh_rejects_invalid_deny_read_globs ... ok
+test setup::tests::setup_refresh_rejects_root_globs_before_expansion ... ok
+test setup_error::tests::sanitize_tag_value_redacts_multiple_occurrences ... ok
+test setup_error::tests::sanitize_tag_value_redacts_username_segments ... ok
+test setup_error::tests::sanitize_tag_value_leaves_unknown_segments ... ok
+test setup_launch::tests::retained_handles_child ... ignored, child process for child_retains_directory_pin_until_exit
+test setup_provisioning::acl_tests::provision_only_locks_plain_directory_via_handle ... ok
+test setup::tests::report_helper_failure_uses_setup_error_report_when_clear_succeeded ... ok
+test setup_provisioning::firewall::apartment_tests::firewall_access_preserves_the_services_existing_mta ... ok
+test setup_provisioning::firewall::tests::local_policy_modify_state_rejects_ineffective_policy ... ok
+test setup_provisioning::firewall::tests::local_policy_modify_state_accepts_effective_policy ... ok
+test setup_launch::tests::missing_executable_returns_spawn_error_without_closing_retained_handles ... ok
+test setup_provisioning::acl_tests::lock_sandbox_dir_blocks_inherited_write_for_runner_files ... ok
+test setup::tests::workspace_write_roots_remain_readable ... ok
+test setup_provisioning::firewall::tests::local_policy_modify_state_rejects_partial_profile_coverage ... ok
+test setup_provisioning::registered_tests::helper_account_gate_covers_actual_provisioning_modes ... ok
+test setup_provisioning::registered_tests::parsed_provision_only_cannot_claim_the_private_service_entry ... ok
+test setup_provisioning::sandbox_users::tests::repairs_existing_account_password_without_changing_account_policy ... ignored, requires administrator rights to create and remove a disposable local account
+test setup_provisioning::registered_tests::payload_runtime_wire_normalization_preserves_opt_in ... ok
+test setup_provisioning::registered_tests::unverified_payload_cannot_create_legacy_bin ... ok
+test setup_provisioning::setup_runtime_bin::tests::runtime_paths_include_desktop_parent_and_primary_runtime_roots ... ok
+test setup_provisioning::setup_runtime_bin::tests::primary_runtime_path_does_not_depend_on_local_app_data ... ok
+test setup_provisioning::firewall::tests::configured_remote_address_literals_are_accepted_by_firewall_com ... ok
+test setup_provisioning::firewall::tests::production_firewall_rule_network_scopes_are_accepted_by_firewall_com ... ok
+test setup_provisioning::registered_tests::registered_payload_never_creates_or_locks_legacy_bin ... ok
+test setup_provisioning::setup_runtime_bin::tests::runtime_repair_preserves_other_trustees_inherited_file_denial ... ok
+test setup_provisioning::setup_runtime_bin::tests::repairs_children_when_runtime_root_already_has_read_execute_access ... ok
+test setup_provisioning::tests::payload_accepts_interactive_provision_mode ... ok
+test setup_provisioning::tests::payload_accepts_otel_settings ... ok
+test setup_provisioning::tests::payload_accepts_provision_only_mode ... ok
+test setup_provisioning::tests::payload_defaults_otel_absent ... ok
+test provisioning_client::tests::workload_identity_selects_helper_fallback_except_for_registered_core ... ok
+test setup_provisioning::tests::deny_path_includes_nested_active_root_sid ... ok
+test setup::tests::setup_refresh_preserves_workspace_scoped_deny_read_paths ... ok
+test setup_provisioning::tests::write_root_refresh_replaces_stale_delete_child_grant ... ok
+test spawn_prep::tests::common_spawn_env_keeps_network_env_unchanged ... ok
+test setup_provisioning::tests::deny_path_outside_active_roots_falls_back_to_all_active_root_sids ... ok
+test identity::integration_tests::credential_setup_reconciles_policy_and_repairs_accounts ... ok
+test setup_provisioning::setup_runtime_bin::tests::runtime_repair_does_not_follow_directory_junctions ... ok
+test setup::tests::effective_write_roots_match_payload_filtering_for_overrides ... ok
+test setup_provisioning::tests::write_root_refresh_ignores_inherited_delete_child_grant ... ok
+test spawn_prep::tests::legacy_spawn_env_applies_offline_network_rewrite ... ok
+test spawn_prep::tests::no_network_env_rewrite_applies_for_workspace_write ... ok
+test spawn_prep::tests::no_network_env_rewrite_skips_when_network_access_is_allowed ... ok
+test stdio_bridge::tests::output_forwarder_writes_all_chunks ... ok
+test stdio_bridge::tests::input_forwarder_sends_chunks_and_reports_eof ... ok
+test setup_provisioning::tests::write_root_refresh_checks_each_sid ... ok
+test token::tests::elevated_token_includes_network_proxy_restricting_sid ... ok
+test token::token_groups_tests::rejects_malformed_and_out_of_buffer_sids ... ok
+test token::token_groups_tests::rejects_truncated_group_layout ... ok
+test token_user::tests::queries_current_user_and_rejects_invalid_token ... ok
+test token::token_groups_tests::owns_sids_and_preserves_duplicate_order_and_attributes ... ok
+test setup_provisioning::tests::deny_path_under_active_root_uses_only_matching_root_sid ... ok
+test token::token_groups_tests::queries_current_token_with_a_caller_size_limit ... ok
+test token_user::tests::rejects_truncated_user_and_malformed_sid ... ok
+test token_user::tests::user_sid_is_owned_after_the_query_buffer_is_dropped ... ok
+test unified_exec::tests::finish_driver_spawn_closes_stdin_when_not_requested ... ok
+test spawn_prep::tests::legacy_session_capability_roots_use_runtime_workspace_roots_for_workspace_root ... ok
+test unified_exec::backends::elevated::tests::retry_uses_original_unified_exec_request_and_stops_after_second_failure ... ok
+test ssh_config_dependencies::tests::collects_path_directive_profile_entries ... ok
+test unified_exec::tests::legacy_capture_emits_output_and_preserves_descendant_after_normal_exit ... ok
+test unified_exec::tests::legacy_capture_cancellation_terminates_descendants_without_timeout ... ok
+test unified_exec::tests::finish_driver_spawn_keeps_stdin_open_when_requested ... ok
+test unified_exec::tests::legacy_tty_cmd_emits_output_and_accepts_input ... ignored, TODO: legacy ConPTY cmd.exe exits with STATUS_DLL_INIT_FAILED in CI
+test unified_exec::tests::legacy_non_tty_powershell_interrupt_terminates_process ... ok
+test unified_exec::tests::legacy_tty_powershell_emits_output_and_accepts_input ... ok
+test unified_exec::tests::legacy_tty_job_terminates_and_preserves_descendants ... ok
+test unified_exec::tests::registered_non_tty_cmd_forwards_env_output_and_exit ... ignored, requires this test binary in an installed test MSIX, launched with package identity, CODEX_WINDOWS_REGISTERED_CORE=1, and CODEX_HOME provisioned by that package's service in a disposable Windows VM
+test ssh_config_dependencies::tests::recursively_collects_include_dependencies ... ok
+test unified_exec::backends::windows_common::tests::runner_result_reporting_preserves_exit_and_closed_pipe_results ... ok
+test unified_exec::tests::restricted_token_rejects_managed_network_before_spawn ... ok
+test uninstall_windows::principals::tests::profile_cleanup_preserves_account_until_profile_can_be_deleted ... ok
+test uninstall_windows::retained_logons::tests::matches_only_the_complete_retained_authentication_id ... ok
+test uninstall_windows::retained_logons::tests::rejects_a_token_without_a_captured_managed_sid ... ok
+test uninstall_windows::retained_logons::tests::rejects_distinct_handles_for_the_same_managed_sid ... ok
+test uninstall_windows::retained_logons::tests::rejects_more_than_two_tokens_before_admission ... ok
+test unified_exec::tests::runner_stdin_writer_sends_close_stdin_after_input_eof ... ok
+test uninstall_windows::retained_logons::tests::retained_token_remains_queryable_after_the_borrowed_handle_is_closed ... ok
+test wfp::tests::filter_keys_are_unique ... ok
+test wfp::tests::filter_names_are_unique ... ok
+test windows_impl::tests::applies_network_block_for_read_only ... ok
+test windows_impl::tests::applies_network_block_when_access_is_disabled ... ok
+test windows_impl::tests::legacy_preflight_skips_profiles_without_managed_filesystem_permissions ... ok
+test windows_impl::tests::skips_network_block_when_access_is_allowed ... ok
+test winutil::tests::argv_to_command_line_quotes_each_argument_independently ... ok
+test winutil::tests::argv_to_command_line_quotes_regular_program_args ... ok
+test spawn_prep::tests::legacy_deny_path_includes_nested_active_root_sid ... ok
+test setup_launch::tests::child_retains_directory_pin_until_exit ... ok
+test wrapper::tests::windows_wrapper_args_round_trip ... ok
+test unified_exec::tests::runner_resizer_sends_resize_frame ... ok
+test spawn_prep::tests::root_capability_sids_only_include_active_roots ... ok
+test spawn_prep::tests::legacy_capability_roots_use_effective_write_roots ... ok
+test helper_materialization::copy::tests::destination_is_fresh_uses_size_and_mtime ... ok
+test unified_exec::tests::elevated_non_tty_cmd_forwards_env_output_and_exit has been running for over 60 seconds
+test unified_exec::tests::legacy_non_tty_cmd_emits_output has been running for over 60 seconds
+test unified_exec::tests::legacy_non_tty_cmd_rejects_deny_read_overrides has been running for over 60 seconds
+test unified_exec::tests::legacy_workspace_write_delete_is_limited_to_writable_roots has been running for over 60 seconds
+test unified_exec::tests::elevated_non_tty_cmd_forwards_env_output_and_exit ... FAILED
+test unified_exec::tests::legacy_non_tty_cmd_emits_output ... FAILED
+test unified_exec::tests::legacy_non_tty_cmd_rejects_deny_read_overrides ... FAILED
+test unified_exec::tests::legacy_workspace_write_delete_is_limited_to_writable_roots ... FAILED
+
+failures:
+
+---- unified_exec::tests::elevated_non_tty_cmd_forwards_env_output_and_exit stdout ----
+
+thread 'unified_exec::tests::elevated_non_tty_cmd_forwards_env_output_and_exit' (27008) panicked at windows-sandbox-rs\src\unified_exec\tests.rs:338:13:
+spawn elevated non-tty cmd session: elevated sandbox runner not found: codex-command-runner.exe
+expected codex-command-runner.exe next to the codex executable (c:\Repos\AI\codex\codex-rs\target\debug\deps\codex_windows_sandbox-1566db14328bdab2.exe).
+likely fix: build the sandbox helpers with `cargo build --release -p codex-windows-sandbox`
+sandbox log:
+[2026-09-29 19:59:54.924 codex_windows_sandbox-1566db14328bdab2.exe] START: C:\Windows\System32\cmd.exe /d /c echo %CODEX_ELEVATED_TEST% & exit /b 23
+[2026-09-29 19:59:54.948 codex_windows_sandbox-1566db14328bdab2.exe] sandbox setup required: sandbox setup marker missing or incompatible
+[2026-09-29T16:00:02.010794+00:00] ensuring sandbox users offline=CodexSandboxOffline online=CodexSandboxOnline
+[2026-09-29T16:00:02.410704500+00:00] firewall rule configured name=codex_sandbox_offline_block_loopback_udp protocol=17 RemoteAddresses=127.0.0.0/8,::/127 RemotePorts=* LocalUserAuthorizedList=O:LSD:(A;;CC;;;S-1-5-21-2811029259-1977909989-779020275-1003)
+[2026-09-29T16:00:02.657351100+00:00] firewall rule configured name=codex_sandbox_offline_block_loopback_tcp protocol=6 RemoteAddresses=127.0.0.0/8,::/127 RemotePorts=* LocalUserAuthorizedList=O:LSD:(A;;CC;;;S-1-5-21-2811029259-1977909989-779020275-1003)
+[2026-09-29T16:00:02.940008200+00:00] firewall rule configured name=codex_sandbox_offline_block_loopback_tcp protocol=6 RemoteAddresses=127.0.0.0/8,::/127 RemotePorts=1-65535 LocalUserAuthorizedList=O:LSD:(A;;CC;;;S-1-5-21-2811029259-1977909989-779020275-1003)
+[2026-09-29T16:00:03.214409+00:00] firewall rule configured name=codex_sandbox_offline_block_outbound protocol=256 RemoteAddresses=0.0.0.0-126.255.255.255,128.0.0.0-255.255.255.255,::,::2-ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff RemotePorts=* LocalUserAuthorizedList=O:LSD:(A;;CC;;;S-1-5-21-2811029259-1977909989-779020275-1003)
+[2026-09-29T16:00:03.490257600+00:00] firewall rule configured name=codex_sandbox_offline_block_inbound protocol=256 RemoteAddresses=0.0.0.0-126.255.255.255,128.0.0.0-255.255.255.255,::,::2-ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff RemotePorts=* LocalUserAuthorizedList=O:LSD:(A;;CC;;;S-1-5-21-2811029259-1977909989-779020275-1003)
+[2026-09-29T16:00:03.509735100+00:00] WFP setup succeeded for CodexSandboxOffline with 12 installed filters
+[2026-09-29 20:00:03.512 codex-windows-sandbox-setup.exe] setup provisioning binary completed
+[2026-09-29 20:00:03.595 codex_windows_sandbox-1566db14328bdab2.exe] setup refresh: spawning codex-windows-sandbox-setup.exe (cwd=C:\Repos\AI\codex\codex-rs\windows-sandbox-rs, payload_len=3476)
+[2026-09-29T16:00:03.627161900+00:00] granting read/execute ACE to C:\Users\jayde\.cache\codex-runtimes for sandbox users
+[2026-09-29T16:00:03.651650500+00:00] read-acl-only mode: applying read ACLs
+[2026-09-29T16:00:03.653661200+00:00] granting read ACE to C:\Users\jayde\.cache for sandbox users
+[2026-09-29T16:00:08.180457700+00:00] granting read ACE to C:\Users\jayde\.cargo for sandbox users
+[2026-09-29T16:00:08.549902100+00:00] granting write ACE to C:\Repos\AI\codex\codex-rs for sandbox group and capability SID
+[2026-09-29T16:00:08.565546100+00:00] granting write ACE to C:\Users\jayde\AppData\Local\Temp for sandbox group and capability SID
+[2026-09-29T16:00:56.273104700+00:00] granting read ACE to C:\Users\jayde\.cline for sandbox users
+[2026-09-29T16:00:56.281799400+00:00] granting read ACE to C:\Users\jayde\.gitconfig for sandbox users
+[2026-09-29T16:00:56.282780+00:00] granting read ACE to C:\Users\jayde\.rustup for sandbox users
+[2026-09-29T16:01:46.886274300+00:00] granting read ACE to C:\Users\jayde\.sbx-denybin for sandbox users
+[2026-09-29T16:01:46.890587300+00:00] read ACL run completed
+[2026-09-29T16:04:55.554757900+00:00] setup refresh: processed 2 write roots (read roots delegated); errors=[]
+[2026-09-29 20:04:55.554 codex-windows-sandbox-setup.exe] setup binary completed
+[2026-09-29 20:04:55.647 codex_windows_sandbox-1566db14328bdab2.exe] helper copy failed for command-runner: helper not found next to current executable or under codex-resources: c:\Repos\AI\codex\codex-rs\target\debug\deps\codex_windows_sandbox-1566db14328bdab2.exe; falling back to legacy path codex-command-runner.exe
+
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- unified_exec::tests::legacy_non_tty_cmd_emits_output stdout ----
+
+thread 'unified_exec::tests::legacy_non_tty_cmd_emits_output' (29740) panicked at windows-sandbox-rs\src\unified_exec\tests.rs:56:10:
+legacy Windows sandbox process test lock poisoned: PoisonError { .. }
+
+---- unified_exec::tests::legacy_non_tty_cmd_rejects_deny_read_overrides stdout ----
+
+thread 'unified_exec::tests::legacy_non_tty_cmd_rejects_deny_read_overrides' (22088) panicked at windows-sandbox-rs\src\unified_exec\tests.rs:56:10:
+legacy Windows sandbox process test lock poisoned: PoisonError { .. }
+
+---- unified_exec::tests::legacy_workspace_write_delete_is_limited_to_writable_roots stdout ----
+
+thread 'unified_exec::tests::legacy_workspace_write_delete_is_limited_to_writable_roots' (30072) panicked at windows-sandbox-rs\src\unified_exec\tests.rs:56:10:
+legacy Windows sandbox process test lock poisoned: PoisonError { .. }
+
+
+failures:
+    unified_exec::tests::elevated_non_tty_cmd_forwards_env_output_and_exit
+    unified_exec::tests::legacy_non_tty_cmd_emits_output
+    unified_exec::tests::legacy_non_tty_cmd_rejects_deny_read_overrides
+    unified_exec::tests::legacy_workspace_write_delete_is_limited_to_writable_roots
+
+test result: FAILED. 240 passed; 4 failed; 5 ignored; 0 measured; 0 filtered out; finished in 301.22s
+
+error: test failed, to rerun pass `-p codex-windows-sandbox --lib`
