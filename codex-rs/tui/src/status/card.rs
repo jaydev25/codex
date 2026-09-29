@@ -806,10 +806,11 @@ impl StatusHistoryCell {
         self.collect_rate_limit_labels(&rate_limit_state, &mut seen, &mut labels);
         if self.local_analysis_stats.successful_jobs > 0 {
             push_label(&mut labels, &mut seen, "Session local analysis");
-            push_label(&mut labels, &mut seen, "Session tokens saved");
+            push_label(&mut labels, &mut seen, "Cloud analysis input");
+            push_label(&mut labels, &mut seen, "Cloud input avoided");
         }
         if self.local_analysis_stats.successful_actor_calls > 0 {
-            push_label(&mut labels, &mut seen, "Session actor usage");
+            push_label(&mut labels, &mut seen, "Session coordinator usage");
         }
         self.thread_usage.push_labels(&mut labels, &mut seen);
 
@@ -912,7 +913,23 @@ impl StatusHistoryCell {
                 ))],
             ));
             lines.push(formatter.line(
-                "Session tokens saved",
+                "Cloud analysis input",
+                vec![Span::from(format!(
+                    "{} raw → {} forwarded",
+                    format_tokens_compact(
+                        self.local_analysis_stats
+                            .raw_estimated_tokens
+                            .min(i64::MAX as u64) as i64,
+                    ),
+                    format_tokens_compact(
+                        self.local_analysis_stats
+                            .forwarded_estimated_tokens
+                            .min(i64::MAX as u64) as i64,
+                    ),
+                ))],
+            ));
+            lines.push(formatter.line(
+                "Cloud input avoided",
                 vec![Span::from(format_tokens_compact(
                     self.local_analysis_stats
                         .estimated_cloud_input_tokens_avoided
@@ -922,7 +939,7 @@ impl StatusHistoryCell {
         }
         if self.local_analysis_stats.successful_actor_calls > 0 {
             lines.push(formatter.line(
-                "Session actor usage",
+                "Session coordinator usage",
                 vec![Span::from(format!(
                     "{} calls · {} in · {} out (local)",
                     self.local_analysis_stats.successful_actor_calls,

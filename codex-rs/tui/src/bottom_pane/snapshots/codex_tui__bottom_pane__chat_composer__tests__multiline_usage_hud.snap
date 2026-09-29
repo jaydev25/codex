@@ -1,0 +1,12 @@
+---
+source: tui/src/bottom_pane/chat_composer.rs
+assertion_line: 13172
+expression: terminal.backend()
+---
+"                                                                                "
+"› Ask Codex to do anything                                                      "
+"                                                                                "
+"                                                                                "
+"                                                                                "
+"  5h 74% (resets 15:45) · W 81% (resets 09:30 on 5 Oct) · Context 24K/272K | 100"
+"                 Coordinator 2 · 2.7K/300 local · Cloud 1.5M→300K · 1.2M saved  "

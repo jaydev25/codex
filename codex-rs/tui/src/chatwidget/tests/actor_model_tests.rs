@@ -29,7 +29,7 @@ async fn actor_model_loading_blocks_prompt_input_snapshot() {
     let (mut chat, _rx, _op_rx) = make_chatwidget_manual(/*model_override*/ None).await;
 
     chat.begin_actor_model_activity(
-        "Loading local actor model".to_string(),
+        "Loading local coordinator model".to_string(),
         "qwen3-coder-30b-a3b-instruct · 32768 token context".to_string(),
     );
 

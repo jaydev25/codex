@@ -1,8 +1,13 @@
 # Configure and Run a Local Model
 
-This Codex build can use a local model to summarize large test, lint, scanner,
-build, and log outputs. The selected cloud model remains responsible for
-planning, diagnosis, edits, tool decisions, and final verification.
+This Codex build uses a local model as a bounded coordinator for decomposition,
+repetitive repository inspection, verification-command selection, and test or
+log triage. The selected cloud model remains responsible for architecture,
+source edits, writing tests, difficult diagnosis, and the final answer.
+
+Large test, lint, scanner, build, and log output can also be analyzed locally.
+Only the validated digest is forwarded to the cloud when it is smaller than the
+raw output. This is the source of the displayed cloud-token savings.
 
 Two model setups are supported:
 
@@ -71,7 +76,7 @@ Edit `%USERPROFILE%\.codex\config.toml` and add:
 enabled = true
 model_id = "lm-studio-qwen-coder"
 require_registered_model = false
-min_output_bytes = 65536
+min_output_bytes = 8192
 max_input_bytes = 2097152
 backend_url = "http://127.0.0.1:1234/v1"
 backend_model = "<LM_STUDIO_MODEL_ID>"
@@ -82,7 +87,7 @@ outside Codex. It does not permit remote inference: the endpoint must still be
 HTTP(S) loopback. Keep the default value `true` for Codex-managed downloads.
 
 `min_output_bytes` controls when offloading begins. The example sends output of
-64 KiB or more to the local model. `max_input_bytes` limits each local prompt to
+8 KiB or more to the local model. `max_input_bytes` limits each local prompt to
 2 MiB while retaining the complete raw artifact for cloud verification.
 
 ### 3. Verify the connection
@@ -94,10 +99,10 @@ HTTP(S) loopback. Keep the default value `true` for Codex-managed downloads.
 
 The result should report `available: yes` for `backend_model`.
 
-### Select the actor model in the TUI
+### Select the coordinator model in the TUI
 
 When local analysis is enabled, the interactive TUI queries LM Studio and opens
-an actor-model picker at startup. Reopen it at any time with:
+a coordinator-model picker at startup. Reopen it at any time with:
 
 ```text
 /act-model
@@ -112,6 +117,20 @@ An exact LM Studio model ID can also be selected directly:
 Selection persists `enabled = true`, `require_registered_model = false`, the
 external `model_id`, and `backend_model` to the user configuration. Codex then
 reloads the configuration for the active session.
+
+For repository-changing tasks, the selected local model produces a bounded
+coordination result. Local-owned steps may inspect the repository, select a
+focused check for the host to run, or triage supplied evidence. Cloud-owned
+steps may implement code or author tests. The coordinator cannot edit files,
+author source or test code, or bypass the normal permission-aware command
+tools. Requests cap reasoning at 1,500 tokens and total output at 8,192 tokens
+so a reasoning-heavy local model cannot consume the turn without returning.
+
+After a focused command completes, Codex can call the coordinator again in the
+`verify` phase with bounded evidence. The local model classifies routine
+failures and recommends either another focused check or a cloud-owned repair.
+Semantic correctness still requires appropriate behavioral evidence; a zero
+exit status alone is not treated as proof.
 
 ### 4. Run Codex
 
@@ -141,7 +160,7 @@ max_disk_gb = 500
 enabled = true
 model_id = "local-log-analyst"
 require_registered_model = true
-min_output_bytes = 65536
+min_output_bytes = 8192
 max_input_bytes = 2097152
 backend_url = "http://127.0.0.1:1234/v1"
 backend_model = "local-log-analyst"
@@ -203,3 +222,18 @@ and verifies the configured model identifier.
 
 Local evidence is treated as untrusted. It cannot authorize commands, edits, or
 acceptance; the cloud-selected model remains the main reasoning brain.
+
+## Token accounting
+
+The HUD and `/status` report local coordinator usage separately from estimated
+cloud input avoided. Savings are computed per successfully compressed command:
+
+```text
+saved = estimated raw-output tokens - estimated forwarded-digest tokens
+```
+
+If the validated digest is not smaller, Codex forwards the raw output and
+records zero savings. The display therefore shows `Cloud RAW→FORWARDED` and the
+corresponding `SAVED` total. Coordinator prompt and completion tokens are local
+usage, not cloud-token savings, and are never added to that total. Counts are
+approximate because command-output accounting uses a bounded token estimate.

@@ -1125,13 +1125,13 @@ pub(crate) enum AppEvent {
     /// Persist and activate the selected local evidence-analysis model.
     UpdateActorModel(String),
 
-    /// Metadata needed to prompt for and load a selected local actor model.
+    /// Metadata needed to prompt for and load a selected local coordinator model.
     ActorModelMetadataLoaded {
         identifier: String,
         result: Result<(String, Option<u32>), String>,
     },
 
-    /// Validate the requested context length and begin loading the actor model.
+    /// Validate the requested context length and begin loading the coordinator model.
     ActorModelContextSubmitted {
         identifier: String,
         model_key: String,

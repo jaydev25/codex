@@ -6,7 +6,7 @@ use codex_local_models::resolve_lm_studio_model;
 impl App {
     pub(super) fn begin_actor_model_metadata_lookup(&mut self, identifier: String) {
         self.chat_widget.begin_actor_model_activity(
-            "Checking local actor model".to_string(),
+            "Checking local coordinator model".to_string(),
             format!("Reading LM Studio metadata for {identifier}"),
         );
         let tx = self.app_event_tx.clone();
@@ -64,7 +64,7 @@ impl App {
                 }
             };
         self.chat_widget.begin_actor_model_activity(
-            "Loading local actor model".to_string(),
+            "Loading local coordinator model".to_string(),
             format!("{identifier} · {context_length} token context"),
         );
         let tx = self.app_event_tx.clone();
@@ -117,7 +117,7 @@ impl App {
 
         let apply_result =
             ConfigEditsBuilder::for_config_path(self.local_settings.user_config_path.as_path())
-                .set_local_actor_model(&identifier)
+                .set_local_planner_model(&identifier)
                 .apply()
                 .await;
         match apply_result {
@@ -127,7 +127,7 @@ impl App {
             }
             Err(error) => self
                 .chat_widget
-                .add_error_message(format!("Failed to save actor model: {error}")),
+                .add_error_message(format!("Failed to save coordinator model: {error}")),
         }
         Ok(())
     }

@@ -126,7 +126,7 @@ impl SlashCommand {
             SlashCommand::MemoryDrop => "DO NOT USE",
             SlashCommand::MemoryUpdate => "DO NOT USE",
             SlashCommand::Model => "choose what model and reasoning effort to use",
-            SlashCommand::ActModel => "choose the local LM Studio actor model",
+            SlashCommand::ActModel => "choose the local LM Studio coordinator model",
             SlashCommand::Ide => {
                 "include current selection, open files, and other context from your IDE"
             }

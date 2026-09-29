@@ -2,10 +2,10 @@
 source: tui/src/chatwidget/tests/actor_model_tests.rs
 expression: "format!(\"{}\\n--- recovery actions ---\\n{}\", history_snapshot(&mut rx),\nrender_bottom_popup(&chat, 80))"
 ---
-■ Could not load local actor model: insufficient GPU memory
+■ Could not load local coordinator model: insufficient GPU memory
 
 --- recovery actions ---
-  Local actor model failed to load
+  Local coordinator model failed to load
   qwen3-coder-30b-a3b-instruct · 32768 tokens
 
 › 1. Retry                 Try the same model and context length again

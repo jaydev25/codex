@@ -19,6 +19,7 @@ use url::Url;
 mod actor;
 mod actor_schema;
 mod lm_studio;
+mod planner;
 pub use actor::ActorAssignment;
 pub use actor::ActorAttemptDecision;
 pub use actor::ActorAttemptTracker;
@@ -35,6 +36,17 @@ pub use actor::run_local_actor;
 pub use lm_studio::LmStudioModelInfo;
 pub use lm_studio::load_lm_studio_model;
 pub use lm_studio::resolve_lm_studio_model;
+pub use planner::LocalPlannerError;
+pub use planner::PlannerContextFile;
+pub use planner::PlannerPhase;
+pub use planner::PlannerRequest;
+pub use planner::PlannerResult;
+pub use planner::PlannerRunOutput;
+pub use planner::PlannerStep;
+pub use planner::PlannerStepKind;
+pub use planner::PlannerStepOwner;
+pub use planner::PlannerUsage;
+pub use planner::run_local_planner;
 
 pub const LOCAL_MODELS_DIR_ENV: &str = "CODEX_LOCAL_MODELS_DIR";
 pub const LOCAL_ANALYSIS_STATS_FILE: &str = "local-analysis-stats.jsonl";
@@ -60,6 +72,8 @@ pub struct LocalAnalysisStats {
     pub successful_jobs: u64,
     pub raw_bytes: u64,
     pub forwarded_bytes: u64,
+    pub raw_estimated_tokens: u64,
+    pub forwarded_estimated_tokens: u64,
     pub estimated_cloud_input_tokens_avoided: u64,
     pub successful_actor_calls: u64,
     pub actor_prompt_tokens: u64,
@@ -85,6 +99,12 @@ impl LocalAnalysisStats {
             forwarded_bytes: self
                 .forwarded_bytes
                 .saturating_sub(baseline.forwarded_bytes),
+            raw_estimated_tokens: self
+                .raw_estimated_tokens
+                .saturating_sub(baseline.raw_estimated_tokens),
+            forwarded_estimated_tokens: self
+                .forwarded_estimated_tokens
+                .saturating_sub(baseline.forwarded_estimated_tokens),
             estimated_cloud_input_tokens_avoided: self
                 .estimated_cloud_input_tokens_avoided
                 .saturating_sub(baseline.estimated_cloud_input_tokens_avoided),
@@ -150,6 +170,12 @@ pub fn load_local_analysis_stats(codex_home: &Path) -> io::Result<LocalAnalysisS
         stats.successful_jobs = stats.successful_jobs.saturating_add(1);
         stats.raw_bytes = stats.raw_bytes.saturating_add(event.raw_bytes);
         stats.forwarded_bytes = stats.forwarded_bytes.saturating_add(event.forwarded_bytes);
+        stats.raw_estimated_tokens = stats
+            .raw_estimated_tokens
+            .saturating_add(event.raw_estimated_tokens);
+        stats.forwarded_estimated_tokens = stats
+            .forwarded_estimated_tokens
+            .saturating_add(event.forwarded_estimated_tokens);
         stats.estimated_cloud_input_tokens_avoided =
             stats.estimated_cloud_input_tokens_avoided.saturating_add(
                 event
@@ -230,7 +256,7 @@ impl Default for LocalAnalysisToml {
     }
 }
 
-pub const DEFAULT_MIN_ANALYSIS_OUTPUT_BYTES: u64 = 64 * 1024;
+pub const DEFAULT_MIN_ANALYSIS_OUTPUT_BYTES: u64 = 8 * 1024;
 pub const DEFAULT_MAX_ANALYSIS_INPUT_BYTES: u64 = 2 * 1024 * 1024;
 pub const EVIDENCE_SCHEMA_VERSION: u32 = 1;
 

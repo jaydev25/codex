@@ -1,10 +1,11 @@
-# System Architecture: Local GPU Agent Loop with Codex Orchestrator
+# System Architecture: Local GPU Coordinator with Codex Worker
 
-This document defines an asynchronous, multi-model agent system that uses
-the user-selected cloud Codex model as the authoritative planner and final
-reviewer, while models running on a local RTX 3090 24 GB GPU perform bounded
-implementation, test authoring, debugging, test-output analysis, log scanning,
-failure clustering, and issue extraction.
+This document defines a multi-model agent system that uses a model running on a
+local RTX 3090 24 GB GPU for bounded coordination and the user-selected cloud
+Codex model for architecture, implementation, test authoring, integration, and
+the final answer. The local model also selects routine verification commands
+and triages their bounded evidence. Large deterministic command output may use
+the local analysis path described later in this document.
 
 The local execution model is not fixed. Users can discover, download, register,
 activate, and switch compatible models from Hugging Face or other supported
@@ -14,91 +15,72 @@ local sources without changing the orchestration workflow.
 
 ## 1. Architectural Strategy and Token Optimization
 
-### 1.1 The Macro/Micro Split
+### 1.1 The Coordinator/Worker Split
 
-To minimize external API token consumption and control costs, the system
-separates planning from execution:
+The system separates planning from execution:
 
-- **Cloud Planner (user-selected Codex model, for example 5.6 Sol):** Owns
-  task decomposition, acceptance criteria, tool/actor-call mapping, safety
-  decisions, escalation after local failure, and final verification. For
-  delegated implementation work it emits only structured JSON orchestration
-  records, not line-by-line source code or script blocks. The selected cloud
-  model remains the authoritative decision maker.
-- **Local Actor (RTX 3090 24 GB):** Receives a validated structured assignment
-  in its system prompt and bounded repository context as a lower-trust user
-  message. It proposes structured file edits, unit and end-to-end tests, and
-  bounded debugging/repair. It also handles
-  token-heavy evidence processing. It cannot alter acceptance criteria,
-  grant itself permissions, or approve its own result.
+- **Local Coordinator (RTX 3090 24 GB):** Receives the user's objective,
+  applicable constraints, bounded repository excerpts, or bounded verification
+  evidence. It decomposes work, assigns explicit local/cloud ownership, selects
+  focused inspection and verification commands, and triages routine failures.
+  It cannot write source, patches, or tests. Suggested commands are advisory and
+  run only through the host's permission-aware tools. Inference caps reasoning
+  at 1,500 tokens and total output at 8,192 tokens.
+- **Cloud Worker (user-selected Codex model):** Inspects enough repository state
+  to frame the consultation, critically reviews the coordination result,
+  gathers requested context when it could change the design, and performs every
+  edit. It owns architecture, code, test authoring, difficult diagnosis,
+  integration, behavioral acceptance, and the final answer.
 - **Model Manager:** Resolves a requested capability profile to an installed
   local model, downloads missing Hugging Face artifacts when authorized, and
   starts the compatible inference backend.
 
-### 1.2 Multi-Model Token-Saving Loop
+### 1.2 Multi-Model Loop
 
-1. **Plan in cloud:** The selected cloud model emits a schema-validated JSON
-   assignment with task ID, objective, allowed paths/tools, tool-call map,
-   acceptance criteria, and budgets. It does not emit implementation scripts.
-2. **Delegate to the local actor:** Codex serializes that exact validated
-   assignment into the local actor's system message, alongside fixed role and
-   trust rules. Repository text and tool output remain lower-trust user/tool
-   content. The actor writes code, unit tests, and end-to-end tests.
-3. **Execute and debug locally:** Codex runs actor-requested tools through
-   normal approval/sandbox controls. The actor analyzes test, lint, scanner,
-   and log results and may repair the same task up to three failed iterations.
-4. **Replan deterministically:** After the third unsuccessful actor repair,
-   or immediately on unavailable local inference, unsafe/unparseable output,
-   or an exhausted budget, Codex returns the original objective, assignment,
-   attempt history, bounded diagnostics, and artifact references to the
-   selected cloud planner. For three valid but unsuccessful attempts, the
-   planner diagnoses the failures and delegates a materially revised bounded
-   assignment with a new task ID back to the local actor. The actor may not
-   silently restart the unchanged assignment's counter.
-5. **Verify in cloud:** The planner reviews the patch and test evidence,
-   requests raw excerpts if needed, and accepts or revises the plan. It remains
-   planner and reviewer rather than becoming the implementation actor merely
-   because the first assignment failed. Local success is not self-approval.
+1. **Coordinate locally:** Codex calls `local_coordinator` with phase `plan`.
+   The loopback model decomposes the objective and assigns local repetitive
+   work and cloud implementation work using a strict schema.
+2. **Complete missing context:** If the coordinator sets `needs_more_context`,
+   Codex reads the requested paths and consults it again only when those paths
+   could materially change the design.
+3. **Inspect locally:** The host executes local-owned read-only inspection
+   commands through normal controls and returns bounded evidence to the
+   coordinator. The local model itself receives no ambient shell authority.
+4. **Implement in cloud:** Codex reviews the result and writes the code and tests
+   itself. The local model is not asked to generate large files, avoiding the
+   truncation and repair loops observed when a 27B model acted as the coder.
+5. **Verify locally:** The host runs coordinator-selected focused checks, then
+   calls `local_coordinator` with phase `verify` and bounded evidence. Routine
+   failures are triaged locally; required source or test changes return to the
+   cloud owner.
+6. **Accept in cloud:** Codex evaluates observable behavior and the requested
+   acceptance criteria. A clean console or zero exit status does not establish
+   correctness when visual, physical, or other semantic behavior matters.
+7. **Fallback:** Invalid output, timeout, or an unavailable local endpoint does
+   not strand the turn. Codex continues with cloud planning and reports the
+   fallback in commentary.
 
-### 1.3 Structured orchestration contract
+### 1.3 Structured coordination contract
 
-The planner's machine-readable response is a versioned JSON object. Use a
-strict response schema, not a prose-only prompt convention. Each assignment
-contains `task_id`, `kind`, `objective`, `allowed_paths`, `allowed_tools`,
-`tool_call_map`, `acceptance_criteria`, and `budgets`. `kind` distinguishes
-implementation, unit-test authoring, end-to-end-test authoring, and debugging.
-The map contains logical operation names and tool/argument templates; it does
-not carry executable script bodies. Reject unknown fields, invalid tools,
-out-of-scope paths, and oversized strings before any actor or tool call.
+The request and response are versioned strict JSON objects rather than a prose
+convention. A request contains `phase`, `objective`, `constraints`, and bounded
+`context_files`. Limits on objective size, file count, per-file bytes, and total
+context provide a hard cap on injected model context.
 
-The actor request has a fixed system preamble followed by the validated JSON
-assignment in the **same system message**. Bounded context files are capped by
-file count, per-file bytes, and total bytes, hashed, and sent separately as a
-lower-trust user message. The actor returns strict structured add or exact
-replacement edits, test commands, diagnostics, and `needs_escalation`. Trusted
-Codex code validates authorized paths, complete context hashes, and unique old
-text before rendering `apply_patch` syntax for cloud review. The local model
-never authors executable patch grammar or receives ambient filesystem or shell
-authority just because its endpoint is on loopback.
+The result contains `summary`, ordered `steps`, `risks`, `verification`,
+`needs_more_context`, and `requested_context_paths`. Each step names its files,
+rationale, and behavior-focused acceptance criteria. Unknown fields and
+incomplete steps are rejected. Every step has an `owner` and `kind`. Cloud steps
+are limited to `implement` and `test_authoring` and carry no command. Local
+steps are limited to `inspect`, `verify`, and `triage`; inspect and verify steps
+must supply a command for the host. The response remains below the repository's
+10K-token per-fragment limit.
 
-An unsuccessful iteration means a failed acceptance test, invalid edit,
-invalid actor response, or unresolved diagnostic. Safe schema, stale-context,
-and ambiguous-match failures return bounded retry feedback; unauthorized paths
-or tools remain terminal. Count attempts per original
-`task_id`, persist the count in the run record, and cap at three. The cloud
-handoff includes all three attempts but bounds raw log content by artifact
-references and requested excerpts. A new cloud assignment may start a new
-counter only when the planner explicitly changes the objective or scope.
-
-The source tree exposes the actor through a strict structured function schema
-when its loopback backend is configured. Actor results are validated against
-the immutable planner assignment and converted into a cloud-reviewed execution
-plan whose entries run through the normal permission-aware tools. Completed
-attempts are recovered from rollout call/output pairs after process resume,
-and the unchanged original assignment returns to cloud after three failures.
-The structured handoff directs cloud to replan and delegate a materially
-revised assignment with a new task ID back to the actor. The local model never
-applies patches or runs tests directly.
+The local endpoint must be HTTP(S) loopback. The coordinator receives no tool
+descriptors or authority, and its output is returned to the cloud worker as a
+read-only tool result. Only the host can invoke execution tools and only the
+cloud worker can produce mutations, so normal approvals and sandbox policy
+remain the single enforcement path.
 
 ---
 
@@ -206,7 +188,7 @@ max_disk_gb = 500
 enabled = true
 model_id = "local-log-analyst"
 require_registered_model = true
-min_output_bytes = 65536
+min_output_bytes = 8192
 max_input_bytes = 2097152
 backend_url = "http://127.0.0.1:1234/v1"
 backend_model = "local-log-analyst"
@@ -249,7 +231,11 @@ Successful routing also appends bounded byte and estimated-token counters to a
 persistent ledger. The TUI captures that ledger as a startup baseline and
 subtracts it when rendering the footer and `/status`, making the displayed
 approximate savings session-scoped. The estimate represents cloud input avoided
-by large-output analysis. Successful local-actor completions write
+by large-output analysis. For each job it is the positive difference between
+estimated raw-output tokens and estimated forwarded-digest tokens. If the
+digest is not smaller, raw output is forwarded and savings remain zero. The HUD
+shows `Cloud RAW→FORWARDED` beside the resulting `SAVED` value. Successful
+local-coordinator completions write
 backend-reported prompt, completion, and total counters to a separate ledger;
 `/status` reports those local tokens separately and never adds them to the
 savings estimate. A future conversion requires a reviewed equivalent-cloud-work
@@ -259,10 +245,11 @@ See [Configure and Run a Local Model](../local-model-setup.md) for both the
 existing LM Studio and Codex-managed GGUF workflows.
 
 When local analysis is enabled, the interactive TUI requests the configured
-loopback server's `/models` list at startup and presents an actor-model picker.
-`/act-model` reopens it and `/act-model <model-id>` selects directly. Selection
-is persisted as an explicitly external model and the active configuration is
-reloaded; it never changes the authoritative cloud model selected by `/model`.
+loopback server's `/models` list at startup and presents a coordinator-model
+picker. `/act-model` reopens it and `/act-model <model-id>` selects directly.
+Selection is persisted as an explicitly external model and the active
+configuration is reloaded; it never changes the authoritative cloud model
+selected by `/model`.
 
 ### 2.6 Model Selection and Switching
 

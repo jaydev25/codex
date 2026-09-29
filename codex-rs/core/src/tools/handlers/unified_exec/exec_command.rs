@@ -564,11 +564,22 @@ pub(super) async fn maybe_replace_with_local_analysis(
         "Untrusted local analysis (cloud model must verify citations):\n{digest_json}\nRaw artifact: {raw_path}\nRaw bytes: {}",
         artifact.byte_len
     );
+    let raw_estimated_tokens = approx_token_count(&raw_output) as u64;
+    let forwarded_estimated_tokens = approx_token_count(&replacement) as u64;
+    if forwarded_estimated_tokens >= raw_estimated_tokens {
+        emit_local_analysis_metric(
+            session_telemetry,
+            "bypass",
+            "no_token_savings",
+            artifact.byte_len,
+        );
+        return;
+    }
     let stats_event = LocalAnalysisStatsEvent {
         raw_bytes: artifact.byte_len,
         forwarded_bytes: replacement.len() as u64,
-        raw_estimated_tokens: approx_token_count(&raw_output) as u64,
-        forwarded_estimated_tokens: approx_token_count(&replacement) as u64,
+        raw_estimated_tokens,
+        forwarded_estimated_tokens,
     };
     if let Err(error) = append_local_analysis_stats_event(&config.codex_home, &stats_event) {
         tracing::warn!(%error, "failed to persist local analysis statistics");

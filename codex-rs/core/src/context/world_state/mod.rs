@@ -43,7 +43,7 @@ pub(crate) use compact_permissions::CompactPermissionsState;
 pub(crate) use context_window_guidance::ContextWindowGuidanceState;
 pub(crate) use environment::EnvironmentsState;
 pub(crate) use environments_instructions::EnvironmentsInstructionsState;
-pub(crate) use local_actor_planner::LocalActorPlannerState;
+pub(crate) use local_actor_planner::LocalCoordinatorGuidanceState;
 pub(crate) use managed_developer_instructions::ManagedDeveloperInstructions;
 pub(crate) use managed_developer_instructions::ManagedDeveloperInstructionsState;
 pub(crate) use managed_developer_instructions::validate_managed_developer_instructions;

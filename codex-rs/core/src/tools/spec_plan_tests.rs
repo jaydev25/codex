@@ -31,7 +31,6 @@ use codex_protocol::protocol::SubAgentSource;
 use codex_protocol::protocol::TurnEnvironmentSelection;
 use codex_tools::DiscoverablePluginInfo;
 use codex_tools::DiscoverableTool;
-use codex_tools::JsonSchema;
 use codex_tools::ResponsesApiNamespaceTool;
 use codex_tools::ResponsesApiTool;
 use codex_tools::ToolCall as ExtensionToolCall;
@@ -993,7 +992,7 @@ async fn shell_family_registers_only_unified_exec_tools() {
 }
 
 #[tokio::test]
-async fn configured_local_actor_is_visible_as_a_read_only_tool() {
+async fn configured_local_coordinator_is_visible_as_a_read_only_tool() {
     let plan = probe(|turn| {
         update_config(turn, |config| {
             config.local_analysis.enabled = true;
@@ -1003,31 +1002,28 @@ async fn configured_local_actor_is_visible_as_a_read_only_tool() {
     })
     .await;
 
-    plan.assert_visible_contains(&["local_actor"]);
-    let ToolSpec::Function(spec) = plan.visible_spec("local_actor") else {
-        panic!("expected local_actor function tool");
+    plan.assert_visible_contains(&["local_coordinator"]);
+    let ToolSpec::Function(spec) = plan.visible_spec("local_coordinator") else {
+        panic!("expected local_coordinator function tool");
     };
     assert!(
         spec.description
-            .contains("never applies patches or runs commands")
+            .contains("cannot edit files or write tests")
     );
     assert!(spec.strict);
     let properties = spec
         .parameters
         .properties
         .as_ref()
-        .expect("local_actor parameters should define properties");
+        .expect("local_coordinator parameters should define properties");
     let required = spec
         .parameters
         .required
         .as_ref()
-        .expect("strict local_actor parameters should require every property");
+        .expect("strict local_coordinator parameters should require every property");
     assert_eq!(required.len(), properties.len());
     assert!(required.iter().all(|name| properties.contains_key(name)));
-    assert_eq!(
-        properties["failure_feedback"].any_of,
-        Some(vec![JsonSchema::string(None), JsonSchema::null(None)])
-    );
+    assert_eq!(properties.len(), 5);
 }
 
 #[tokio::test]

@@ -318,9 +318,8 @@ impl ChatWidget {
             five_hour_window.map(|(window, _)| (100.0 - window.used_percent).clamp(0.0, 100.0));
         let weekly =
             weekly_window.map(|(window, _)| (100.0 - window.used_percent).clamp(0.0, 100.0));
-        let next_reset = five_hour_window
-            .and_then(|(window, _)| window.resets_at.as_deref())
-            .or_else(|| weekly_window.and_then(|(window, _)| window.resets_at.as_deref()));
+        let five_hour_reset = five_hour_window.and_then(|(window, _)| window.resets_at.as_deref());
+        let weekly_reset = weekly_window.and_then(|(window, _)| window.resets_at.as_deref());
         let local_stats = load_local_analysis_stats(&self.config.codex_home)
             .unwrap_or_default()
             .saturating_sub(&self.local_analysis_stats_baseline);
@@ -340,8 +339,11 @@ impl ChatWidget {
                 format_usage_hud(UsageHudData {
                     five_hour,
                     weekly,
-                    next_reset,
+                    five_hour_reset,
+                    weekly_reset,
                     context,
+                    analysis_raw_tokens: local_stats.raw_estimated_tokens,
+                    analysis_forwarded_tokens: local_stats.forwarded_estimated_tokens,
                     analysis_saved_tokens: saved,
                     actor_calls: local_stats.successful_actor_calls,
                     actor_prompt_tokens: local_stats.actor_prompt_tokens,

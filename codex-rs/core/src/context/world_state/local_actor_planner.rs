@@ -1,20 +1,22 @@
 use super::PreviousSectionState;
 use super::WorldStateSection;
 use crate::context::ContextualUserFragment;
-use crate::context::LocalActorPlanner;
+use crate::context::LocalCoordinatorGuidance;
 
 #[derive(Clone, Copy, Debug, Default)]
-pub(crate) struct LocalActorPlannerState {
+pub(crate) struct LocalCoordinatorGuidanceState {
     enabled: bool,
 }
 
-impl LocalActorPlannerState {
+impl LocalCoordinatorGuidanceState {
     pub(crate) fn new(enabled: bool) -> Self {
         Self { enabled }
     }
 }
 
-impl WorldStateSection for LocalActorPlannerState {
+impl WorldStateSection for LocalCoordinatorGuidanceState {
+    // Retain the original section ID so resumed rollouts replace old guidance
+    // instead of appending a second division-of-labor fragment.
     const ID: &'static str = "local_actor_planner";
     type Snapshot = bool;
 
@@ -23,7 +25,7 @@ impl WorldStateSection for LocalActorPlannerState {
     }
 
     fn matches_legacy_fragment(role: &str, text: &str) -> bool {
-        role == "developer" && LocalActorPlanner::matches_text(text)
+        role == "developer" && LocalCoordinatorGuidance::matches_text(text)
     }
 
     fn has_retained_fragment_matcher() -> bool {
@@ -44,6 +46,6 @@ impl WorldStateSection for LocalActorPlannerState {
         {
             return None;
         }
-        Some(Box::new(LocalActorPlanner))
+        Some(Box::new(LocalCoordinatorGuidance))
     }
 }

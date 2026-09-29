@@ -820,7 +820,7 @@ impl ConfigEditsBuilder {
         self
     }
 
-    pub fn set_local_actor_model(mut self, model: &str) -> Self {
+    pub fn set_local_planner_model(mut self, model: &str) -> Self {
         self.edits.extend([
             ConfigEdit::SetPath {
                 segments: vec![

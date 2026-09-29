@@ -9,7 +9,7 @@ impl ChatWidget {
     pub(crate) fn open_actor_model_popup(&mut self) {
         let Some(backend_url) = self.config.local_analysis.backend_url.clone() else {
             self.add_error_message(
-                "Set local_models.analysis.backend_url before selecting an actor model."
+                "Set local_models.analysis.backend_url before selecting a coordinator model."
                     .to_string(),
             );
             return;
@@ -76,7 +76,9 @@ impl ChatWidget {
         self.config.local_analysis.model_id = Some(format!("lm-studio:{model}"));
         self.config.local_analysis.require_registered_model = false;
         self.add_info_message(
-            format!("Local actor model set to {model} with a {context_length}-token context."),
+            format!(
+                "Local coordinator model set to {model} with a {context_length}-token context."
+            ),
             None,
         );
     }
@@ -91,7 +93,7 @@ impl ChatWidget {
         );
         self.bottom_pane.set_composer_input_enabled(
             /*enabled*/ false,
-            Some("Waiting for the local actor model…".to_string()),
+            Some("Waiting for the local coordinator model…".to_string()),
         );
     }
 
@@ -139,7 +141,7 @@ impl ChatWidget {
         context_length: u32,
         error: String,
     ) {
-        self.add_error_message(format!("Could not load local actor model: {error}"));
+        self.add_error_message(format!("Could not load local coordinator model: {error}"));
         let retry_identifier = identifier.clone();
         let retry_model_key = model_key;
         let retry_actions: Vec<SelectionAction> = vec![Box::new(move |tx| {
@@ -154,7 +156,7 @@ impl ChatWidget {
             tx.send(AppEvent::OpenActorModelPicker);
         })];
         self.show_selection_view(SelectionViewParams {
-            title: Some("Local actor model failed to load".to_string()),
+            title: Some("Local coordinator model failed to load".to_string()),
             subtitle: Some(format!("{identifier} · {context_length} tokens")),
             footer_hint: Some(standard_popup_hint_line()),
             items: vec![

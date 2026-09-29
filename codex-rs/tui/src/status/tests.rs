@@ -394,6 +394,8 @@ async fn status_snapshot_shows_session_local_token_savings() {
             successful_jobs: 2,
             raw_bytes: 2_097_152,
             forwarded_bytes: 131_072,
+            raw_estimated_tokens: 524_288,
+            forwarded_estimated_tokens: 32_768,
             estimated_cloud_input_tokens_avoided: 491_520,
             successful_actor_calls: 2,
             actor_prompt_tokens: 2_700,

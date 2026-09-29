@@ -55,6 +55,7 @@ use ratatui::layout::Rect;
 use ratatui::style::Stylize;
 use ratatui::text::Line;
 use ratatui::text::Span;
+use ratatui::text::Text;
 use ratatui::widgets::Paragraph;
 use std::time::Duration;
 use std::time::Instant;
@@ -523,8 +524,8 @@ impl BottomPane {
         self.request_redraw();
     }
 
-    pub fn set_usage_hud(&mut self, line: Option<Line<'static>>) {
-        self.composer.set_usage_hud(line);
+    pub fn set_usage_hud(&mut self, hud: Option<Text<'static>>) {
+        self.composer.set_usage_hud(hud);
         self.request_redraw();
     }
 

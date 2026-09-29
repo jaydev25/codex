@@ -267,6 +267,7 @@ use ratatui::style::Style;
 use ratatui::style::Stylize;
 use ratatui::text::Line;
 use ratatui::text::Span;
+use ratatui::text::Text;
 use ratatui::widgets::Block;
 use ratatui::widgets::Paragraph;
 use ratatui::widgets::StatefulWidgetRef;
@@ -1041,8 +1042,8 @@ impl ChatComposer {
         self.footer.goal_status_indicator = indicator;
     }
 
-    pub fn set_usage_hud(&mut self, line: Option<Line<'static>>) {
-        self.footer.usage_hud = line;
+    pub fn set_usage_hud(&mut self, hud: Option<Text<'static>>) {
+        self.footer.usage_hud = hud;
     }
 
     pub fn set_ide_context_active(&mut self, active: bool) {
@@ -1082,9 +1083,7 @@ impl ChatComposer {
         textarea_right_reserve: u16,
     ) -> [Rect; 4] {
         let footer_props = self.footer_props();
-        let footer_hint_height = self
-            .custom_footer_height()
-            .unwrap_or_else(|| footer_height(&footer_props));
+        let footer_hint_height = self.footer_hint_height(&footer_props);
         let footer_total_height = footer_hint_height + Self::footer_spacing(footer_hint_height);
         let popup_height = self
             .popups
@@ -1128,6 +1127,24 @@ impl ChatComposer {
         } else {
             FOOTER_SPACING_HEIGHT
         }
+    }
+
+    fn footer_hint_height(&self, footer_props: &FooterProps) -> u16 {
+        self.custom_footer_height().unwrap_or_else(|| {
+            let usage_hud_height = if matches!(
+                footer_props.mode,
+                FooterMode::ComposerEmpty | FooterMode::ComposerHasDraft
+            ) {
+                self.footer
+                    .usage_hud
+                    .as_ref()
+                    .map(|hud| hud.lines.len().min(u16::MAX as usize) as u16)
+                    .unwrap_or(0)
+            } else {
+                0
+            };
+            footer_height(footer_props).max(usage_hud_height)
+        })
     }
 
     pub fn cursor_pos(&self, area: Rect) -> Option<(u16, u16)> {
@@ -1436,6 +1453,7 @@ impl ChatComposer {
             .footer
             .usage_hud
             .as_ref()
+            .and_then(|hud| hud.lines.first())
             .map(|line| line.spans.clone())
             .unwrap_or_default();
         if let Some(vim_mode) = self.vim_mode_indicator_span() {
@@ -1471,7 +1489,13 @@ impl ChatComposer {
                 self.footer.context_window_used_tokens,
             )
         };
-        let mut line = self.footer.usage_hud.clone().unwrap_or_default();
+        let mut line = self
+            .footer
+            .usage_hud
+            .as_ref()
+            .and_then(|hud| hud.lines.first())
+            .cloned()
+            .unwrap_or_default();
         if !line.spans.is_empty() && !context.spans.is_empty() {
             line.spans.push(" | ".dim());
         }
@@ -4648,9 +4672,7 @@ impl ChatComposer {
         textarea_right_reserve: u16,
     ) -> u16 {
         let footer_props = self.footer_props();
-        let footer_hint_height = self
-            .custom_footer_height()
-            .unwrap_or_else(|| footer_height(&footer_props));
+        let footer_hint_height = self.footer_hint_height(&footer_props);
         let footer_total_height = footer_hint_height + Self::footer_spacing(footer_hint_height);
         const COLS_WITH_MARGIN: u16 = LIVE_PREFIX_COLS + 1;
         let inner_width =
@@ -4723,9 +4745,7 @@ impl ChatComposer {
                     | FooterMode::ShortcutOverlay
                     | FooterMode::EscHint => false,
                 };
-                let custom_height = self.custom_footer_height();
-                let footer_hint_height =
-                    custom_height.unwrap_or_else(|| footer_height(&footer_props));
+                let footer_hint_height = self.footer_hint_height(&footer_props);
                 let footer_spacing = Self::footer_spacing(footer_hint_height);
                 let hint_rect = if footer_spacing > 0 && footer_hint_height > 0 {
                     let [_, hint_rect] = Layout::vertical([
@@ -4804,34 +4824,39 @@ impl ChatComposer {
                             show_queue_hint,
                         )
                     };
-                    let right_line = if let Some(label) =
+                    let (right_line, usage_hud_visible) = if let Some(label) =
                         self.footer.side_conversation_context_label.as_ref()
                     {
-                        Some(side_conversation_context_line(label))
+                        (Some(side_conversation_context_line(label)), false)
                     } else if let Some(line) = self.shell_mode_footer_line() {
-                        Some(line)
+                        (Some(line), false)
                     } else if transition_active {
-                        None
+                        (None, false)
                     } else if status_line_active {
                         let full = self.mode_indicator_line(show_cycle_hint);
                         let compact = self.mode_indicator_line(/*show_cycle_hint*/ false);
                         let full_width = full.as_ref().map(|l| l.width() as u16).unwrap_or(0);
                         if can_show_left_with_context(hint_rect, left_width, full_width) {
-                            full
+                            (full, self.footer.usage_hud.is_some())
                         } else {
-                            compact
+                            (compact, self.footer.usage_hud.is_some())
                         }
                     } else {
                         let full = self.right_footer_line_with_context();
-                        let hud_only = self.footer.usage_hud.clone();
+                        let hud_only = self
+                            .footer
+                            .usage_hud
+                            .as_ref()
+                            .and_then(|hud| hud.lines.first())
+                            .cloned();
                         if max_left_width_for_right(hint_rect, full.width() as u16).is_none()
                             && hud_only.as_ref().is_some_and(|line| {
                                 max_left_width_for_right(hint_rect, line.width() as u16).is_some()
                             })
                         {
-                            hud_only
+                            (hud_only, true)
                         } else {
-                            Some(full)
+                            (Some(full), self.footer.usage_hud.is_some())
                         }
                     };
                     let right_width = right_line.as_ref().map(|l| l.width() as u16).unwrap_or(0);
@@ -4954,7 +4979,33 @@ impl ChatComposer {
                         );
                     }
                     if show_right && let Some(line) = &right_line {
-                        render_context_right(hint_rect, buf, line);
+                        let primary_hud_area = Rect {
+                            height: 1,
+                            ..hint_rect
+                        };
+                        render_context_right(primary_hud_area, buf, line);
+                    }
+                    if usage_hud_visible
+                        && !matches!(
+                            footer_props.mode,
+                            FooterMode::EscHint
+                                | FooterMode::HistorySearch
+                                | FooterMode::QuitShortcutReminder
+                                | FooterMode::ShortcutOverlay
+                        )
+                        && let Some(line) = self
+                            .footer
+                            .usage_hud
+                            .as_ref()
+                            .and_then(|hud| hud.lines.get(1))
+                        && hint_rect.height > 1
+                    {
+                        let stats_area = Rect {
+                            y: hint_rect.y.saturating_add(1),
+                            height: 1,
+                            ..hint_rect
+                        };
+                        render_context_right(stats_area, buf, line);
                     }
                     if status_line_active
                         && let Some(url) = self.footer.status_line_hyperlink_url.as_deref()
@@ -5119,6 +5170,8 @@ mod tests {
     use image::ImageBuffer;
     use image::Rgba;
     use pretty_assertions::assert_eq;
+    use ratatui::Terminal;
+    use ratatui::backend::TestBackend;
     use std::path::PathBuf;
     use tempfile::tempdir;
 
@@ -13092,20 +13145,33 @@ mod tests {
             "Ask Codex to do anything".to_string(),
             /*disable_paste_burst*/ false,
         );
-        composer.set_usage_hud(Some(Line::from("5h 74% · W 81% · Local ~1.2M")));
+        composer.set_usage_hud(Some(Text::from(vec![
+            Line::from("5h 74% (resets 15:45) · W 81% (resets 09:30 on 5 Oct) · Context 24K/272K"),
+            Line::from("Coordinator 2 · 2.7K/300 local · Cloud 1.5M→300K · 1.2M saved"),
+        ])));
 
         assert!(
             composer
                 .mode_indicator_line(/*show_cycle_hint*/ false)
                 .expect("usage HUD should produce a mode indicator line")
                 .to_string()
-                .starts_with("5h 74% · W 81% · Local ~1.2M")
+                .starts_with("5h 74% (resets 15:45) · W 81% (resets 09:30 on 5 Oct)")
         );
         assert!(
             composer
                 .right_footer_line_with_context()
                 .to_string()
-                .starts_with("5h 74% · W 81% · Local ~1.2M")
+                .starts_with("5h 74% (resets 15:45) · W 81% (resets 09:30 on 5 Oct)")
         );
+        assert_eq!(composer.footer_hint_height(&composer.footer_props()), 2);
+
+        let mut terminal = Terminal::new(TestBackend::new(80, 7)).expect("terminal");
+        terminal
+            .draw(|frame| composer.render(frame.area(), frame.buffer_mut()))
+            .expect("draw multiline usage HUD");
+        insta::assert_snapshot!("multiline_usage_hud", terminal.backend());
+
+        composer.show_footer_flash(Line::from("Saved"), Duration::from_secs(60));
+        assert_eq!(composer.footer_hint_height(&composer.footer_props()), 1);
     }
 }
